@@ -1,0 +1,50 @@
+---
+title: "Start-LTService"
+description: "Start the LTService and LTSvcMon Windows services."
+---
+
+## Synopsis
+
+Starts the `LTService` and `LTSvcMon` Windows services on the local machine. Before starting, the function checks for any process occupying the agent's TrayPort (default `42000`). If a conflicting process is found, it attempts to kill it. If the process cannot be killed (e.g., a protected application), the TrayPort is incremented by one (wrapping back to `42000` after `42009`) and written to the registry.
+
+## Syntax
+
+```powershell
+Start-LTService [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the command runs without actually executing it. No services are started and no registry changes are made.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before starting the services.
+</ParamField>
+
+## Behavior
+
+- Both `LTService` and `LTSvcMon` must already be installed. The function returns an error if either service is not found.
+- Before starting, the TrayPort is read from `HKLM:\SOFTWARE\LabTech\Service`. If the value is absent, port `42000` is used.
+- Both services are set to **Automatic** startup type before being started via `sc.exe`.
+- After issuing the start command, the function polls LTService every 2 seconds for up to **1 minute** waiting for it to reach the `Running` state.
+- Once the service reaches `Running`, a `Send Status` command is issued via `Invoke-LTServiceCommand` to trigger an immediate agent check-in.
+
+<Note>
+  The 1-minute wait only applies when both services were actually started by this call. If the services were already running, no wait occurs.
+</Note>
+
+## Examples
+
+Start the LabTech agent services:
+
+```powershell
+Start-LTService
+```
+
+Preview what the command would do without making any changes:
+
+```powershell
+Start-LTService -WhatIf
+```

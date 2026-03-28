@@ -1,0 +1,153 @@
+---
+title: "Security encoding"
+description: "Encode and decode LabTech security strings for use in automation scripts."
+---
+
+## Overview
+
+The LabTech agent stores sensitive values — server password, agent password, proxy credentials — in the registry as Base64-encoded strings encrypted with Triple DES. Two functions expose this codec:
+
+| Function | Direction | Use case |
+|---|---|---|
+| `ConvertFrom-LTSecurity` | Encoded → plain text | Extracting passwords from the registry, reading proxy credentials, scripting comparisons. |
+| `ConvertTo-LTSecurity` | Plain text → encoded | Writing credentials back to the registry, preparing values for agent configuration. |
+
+Both functions use a default key (`"Thank you for using LabTech."`) when no key is provided. For agent-specific values such as proxy credentials, the agent password is used as the key instead.
+
+## Decoding a value — `ConvertFrom-LTSecurity`
+
+```
+ConvertFrom-LTSecurity [-InputString] <String[]> [-Key <String[]>] [-Force]
+```
+
+| Parameter | Required | Description |
+|---|---|---|
+| `-InputString` | Yes | The Base64-encoded string to decode. Accepts pipeline input. |
+| `-Key` | No | Key used for decryption. Defaults to the module's default key if omitted. |
+| `-Force` | No | When decoding fails with the provided key, automatically retries with the default key. Default value is `$True`. |
+
+### Basic decode (default key)
+
+```powershell
+ConvertFrom-LTSecurity -InputString 'sQWZzEDYKFFnTT0yP56vgA=='
+```
+
+### Decode using the server password as the key
+
+Proxy credentials in `HKLM:\SOFTWARE\LabTech\Service\Settings` are encoded with the agent password, which is itself encoded with the server password. Read the server password first, then use it as the key:
+
+```powershell
+$info = Get-LTServiceInfo
+
+# Decode the server password using the default key
+$serverPass = ConvertFrom-LTSecurity -InputString $info.ServerPassword
+
+# Decode the agent password using the server password as key
+$agentPass = ConvertFrom-LTSecurity -InputString $info.Password -Key $serverPass
+
+Write-Output "Agent password: $agentPass"
+```
+
+### Pipeline usage
+
+`-InputString` accepts pipeline input by value and by property name:
+
+```powershell
+# Decode a list of encoded values
+@('sQWZzEDYKFFnTT0yP56vgA==', 'Duft4r7fekTp5YnQL9F0V9TbP7sKzm0n') | ConvertFrom-LTSecurity
+
+# Decode a property from an object pipeline
+Get-LTServiceInfo | Select-Object -ExpandProperty ServerPassword | ConvertFrom-LTSecurity
+```
+
+### The `-Force` fallback
+
+By default `-Force` is `$True`. When the primary decode attempt fails (wrong key, corrupted data), the function automatically retries:
+
+- If no key was passed: retries with an empty string key.
+- If a key was passed: retries using the default key.
+
+Set `-Force:$False` to disable the fallback and receive `$Null` on failure instead:
+
+```powershell
+$result = ConvertFrom-LTSecurity -InputString 'someEncodedValue' -Key 'mykey' -Force:$False
+if ($Null -eq $result) {
+    Write-Warning "Decode failed — key may be incorrect."
+}
+```
+
+## Encoding a value — `ConvertTo-LTSecurity`
+
+```
+ConvertTo-LTSecurity [-InputString] <String[]> [[-Key] <Object>]
+```
+
+| Parameter | Required | Description |
+|---|---|---|
+| `-InputString` | Yes | The plain-text string to encode. |
+| `-Key` | No | Key used for encryption. Defaults to the module's default key if omitted. |
+
+### Basic encode (default key)
+
+```powershell
+ConvertTo-LTSecurity -InputString 'MyServerPassword'
+# Returns: sQWZzEDYKFFnTT0yP56vgA== (example)
+```
+
+### Encode with a specific key
+
+Proxy credentials must be encoded with the agent password before writing to the registry:
+
+```powershell
+$agentPass = 'decoded-agent-password'
+$encodedUser = ConvertTo-LTSecurity -InputString 'domain\proxyuser' -Key $agentPass
+$encodedPass = ConvertTo-LTSecurity -InputString 'MyProxyPassword' -Key $agentPass
+
+Write-Output "EncodedProxyUsername: $encodedUser"
+Write-Output "EncodedProxyPassword: $encodedPass"
+```
+
+These encoded values can then be passed to `Set-LTProxy`:
+
+```powershell
+Set-LTProxy `
+    -ProxyServerURL 'proxy.example.com:8080' `
+    -EncodedProxyUsername $encodedUser `
+    -EncodedProxyPassword $encodedPass
+```
+
+### Encode multiple values via pipeline
+
+```powershell
+'Password1', 'Password2' | ConvertTo-LTSecurity
+```
+
+## Real-world example: reading registry credentials
+
+This pattern reads the server password directly from the installed agent registry and decodes it for use in a script:
+
+```powershell
+Import-Module LabTech
+
+$info = Get-LTServiceInfo
+
+# The ServerPassword in the registry is encoded with the default LabTech key
+$plainServerPass = ConvertFrom-LTSecurity -InputString $info.ServerPassword
+
+Write-Output "Server: $($info.Server)"
+Write-Output "Server password (plain): $plainServerPass"
+```
+
+<Warning>
+  Decoded passwords are plain text in memory. Avoid writing them to disk or logging them. Use `-Force:$False` and `$SecureString` handling where possible to minimize exposure.
+</Warning>
+
+## How the codec works
+
+Internally, both functions use `System.Security.Cryptography.TripleDESCryptoServiceProvider` with:
+
+- **Key**: MD5 hash of the UTF-8 encoded key string
+- **IV**: `[byte[]](240, 3, 45, 29, 0, 76, 173, 59)`
+- **Encoding**: UTF-8 for the plaintext; Base64 for the ciphertext
+
+The default key is `"Thank you for using LabTech."`. Agent-specific values use a per-agent password derived from the server password as the key, so encoded values are not portable across agents or server reinstalls.

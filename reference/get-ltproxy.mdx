@@ -1,0 +1,41 @@
+---
+title: "Get-LTProxy"
+description: "Read and store the current proxy configuration for module communications."
+---
+
+## Synopsis
+
+Retrieves proxy settings from the installed Automate agent's registry. If no agent is found, falls back to discovering the system proxy settings. The resolved configuration is stored in module memory and used for all subsequent module operations during the current session.
+
+## Syntax
+
+```powershell
+Get-LTProxy [<CommonParameters>]
+```
+
+## Parameters
+
+This cmdlet has no additional parameters beyond the common PowerShell parameters (`-Debug`, `-ErrorAction`, `-ErrorVariable`, `-InformationAction`, `-InformationVariable`, `-OutVariable`, `-OutBuffer`, `-PipelineVariable`, `-Verbose`, `-WarningAction`, `-WarningVariable`).
+
+## Return value
+
+Returns an object with the following properties:
+
+| Property | Type | Description |
+|---|---|---|
+| `ProxyServerURL` | string | The proxy server URL (e.g. `http://proxy.domain.com:8080`) |
+| `ProxyUsername` | string | Proxy authentication username |
+| `ProxyPassword` | string | Proxy authentication password |
+| `Enabled` | bool | Whether a proxy is currently active |
+
+## Examples
+
+Retrieve and display the current proxy configuration:
+
+```powershell
+Get-LTProxy
+```
+
+## Related commands
+
+- [Set-LTProxy](/reference/set-ltproxy)

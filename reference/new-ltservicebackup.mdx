@@ -1,0 +1,62 @@
+---
+title: "New-LTServiceBackup"
+description: "Back up the current Automate agent service configuration to a file."
+---
+
+## Synopsis
+
+Copies the agent's service folder to a `Backup` subdirectory alongside the agent installation path, and exports all registry keys under `HKLM\SOFTWARE\LabTech` to a `.reg` file. The registry export is re-keyed to `HKLM\SOFTWARE\LabTechBackup` and imported, making it readable by `Get-LTServiceInfoBackup`.
+
+Run this command before `Uninstall-LTService` or `Redo-LTService` to preserve the current configuration so the agent can be reinstalled with the same settings.
+
+<Warning>
+The cmdlet writes a terminating error and stops if the agent installation path or registry keys cannot be located. Verify the agent is installed before running this command.
+</Warning>
+
+## Syntax
+
+```powershell
+New-LTServiceBackup [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+This cmdlet has no parameters beyond `-WhatIf`, `-Confirm`, and the standard common parameters. Pass `-WhatIf` to preview the backup actions without making changes.
+
+## Output
+
+On success, writes the string `The LabTech Backup has been created.` to the output stream.
+
+The backup is written to:
+
+| Item | Location |
+|---|---|
+| Agent service folder | `<BasePath>Backup\` |
+| Registry export | `<BasePath>Backup\LTBackup.reg` |
+| Registry import path | `HKLM\SOFTWARE\LabTechBackup` |
+
+## Examples
+
+Create a backup of the current agent configuration:
+
+```powershell
+New-LTServiceBackup
+```
+
+Back up the agent and then reinstall it with the same settings:
+
+```powershell
+New-LTServiceBackup; Redo-LTService
+```
+
+Preview what the backup would do without making any changes:
+
+```powershell
+New-LTServiceBackup -WhatIf
+```
+
+## Related commands
+
+- [Get-LTServiceInfoBackup](/reference/get-ltserviceinfobackup)
+- [Redo-LTService](/reference/redo-ltservice)
+- [Uninstall-LTService](/reference/uninstall-ltservice)

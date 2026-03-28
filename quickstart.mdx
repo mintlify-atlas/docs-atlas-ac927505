@@ -1,80 +1,154 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quickstart'
+description: 'Go from zero to a running LabTech agent in five steps using the LabTech PowerShell Module.'
 ---
 
-## Get started in three steps
+This page walks you through importing the module and installing a LabTech agent on a machine for the first time. Every command must be run in an **Administrator** PowerShell session.
 
-Get your documentation site running locally and make your first customization.
+<Warning>
+The module installs Windows services and writes to `HKLM:\SOFTWARE\LabTech`. You must run PowerShell as Administrator or every service-management command will throw: *"Needs to be ran as Administrator"*.
+</Warning>
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Import the module">
+    The fastest way to load the module is to download and execute it directly from the LabTech Consulting shortlink. No file is saved to disk; the module is loaded into the current session only.
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```powershell
+    (New-Object Net.WebClient).DownloadString('https://bit.ly/LTPoSh') | iex
+    ```
 
-### Step 2: Deploy your changes
+    <Note>
+    This command evaluates the module source in-memory. If you need to load it from a local file instead, see the [Installation](/installation) page.
+    </Note>
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  <Step title="Verify the module loaded">
+    Confirm the module is available by pulling the current agent registry information. If the agent is not yet installed, the command returns `$null` and emits an informational error — that is expected at this stage.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```powershell
+    Get-LTServiceInfo
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    When no agent is installed you will see:
 
-### Step 3: Go live
+    ```powershell
+    Get-LTServiceInfo : ERROR: Line 154: Unable to find information on LTSvc. Make sure the agent is installed.
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    That error confirms the module is loaded and working. To verify the module version directly:
 
-## Next steps
+    ```powershell
+    (Get-Module | Where-Object { $_.Name -like '*LabTech*' }).Version
+    ```
+  </Step>
 
-Now that you have your docs running, explore these key features:
+  <Step title="Install the agent">
+    Call `Install-LTService` with your server URL, server password, and target location ID. The function downloads the agent MSI from your server, runs the installer, and waits up to three minutes for the agent to register.
 
-<CardGroup cols={2}>
+    ```powershell
+    Install-LTService -Server 'https://lt.domain.com' `
+                      -ServerPassword 'YourServerPassword' `
+                      -LocationID 42
+    ```
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+    | Parameter | Required | Description |
+    |-----------|----------|-------------|
+    | `-Server` | Yes | URL of your LabTech server. Bare hostnames and `http://` are also accepted; `https://` is prepended automatically if omitted. |
+    | `-ServerPassword` | Yes (or use `-InstallerToken`) | The server password from `SELECT SystemPassword FROM config;` in the Automate database. |
+    | `-LocationID` | No (defaults to `1`) | The numeric location ID the agent should appear under. |
+    | `-InstallerToken` | Alternative to `-ServerPassword` | A deployment token from the Automate Deployment page, for tokenised MSI installs. |
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+    <Tip>
+    Preview what `Install-LTService` would do without executing anything:
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+    ```powershell
+    Install-LTService -Server 'https://lt.domain.com' -ServerPassword 'pass' -LocationID 42 -WhatIf
+    ```
+    </Tip>
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+    The installer retries the MSI up to three times if `LTService` does not appear after the first run. On success:
 
-</CardGroup>
+    ```
+    LabTech has been installed successfully. Agent ID: 1234 LocationID: 42
+    ```
+  </Step>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+  <Step title="Confirm the install succeeded">
+    After the installer exits, read the agent's registry values to verify it registered correctly.
+
+    ```powershell
+    Get-LTServiceInfo
+    ```
+
+    Successful output includes the agent ID, server address, and location:
+
+    ```
+    ID            : 1234
+    LocationID    : 42
+    Server        : https://lt.domain.com
+    BasePath      : C:\Windows\LTSVC
+    ServerVersion : 240.xxx
+    ```
+
+    You can also confirm the Windows services are running:
+
+    ```powershell
+    Get-Service LTService, LTSvcMon | Select-Object Name, Status
+    ```
+
+    Both services should report `Running`.
+  </Step>
+
+  <Step title="Restart the agent service">
+    To restart the agent after a configuration change, use `Restart-LTService`. It stops `LTService` and `LTSvcMon`, waits for the `Stopped` state, then starts both services and waits for `Running`. After startup it automatically sends a `Send Status` command so the agent checks in with the server immediately.
+
+    ```powershell
+    Restart-LTService
+    ```
+
+    On success:
+
+    ```
+    Services Restarted successfully.
+    ```
+
+    To stop or start services independently:
+
+    ```powershell
+    Stop-LTService
+    Start-LTService
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+**Agent installed but did not register within 3 minutes:**
+
+The install completes but `Get-LTServiceInfo` shows no ID. Check that the machine can reach the LabTech server on HTTPS, then restart the agent:
+
+```powershell
+Restart-LTService
+```
+
+**Previous installation remnants detected:**
+
+`Install-LTService` automatically calls `Uninstall-LTService` when it finds leftover files or registry keys under `HKLM:\Software\LabTech\Service` or in `%windir%\LTSVC`. To trigger this manually:
+
+```powershell
+Uninstall-LTService -Server 'https://lt.domain.com'
+```
+
+**Reinstall from scratch:**
+
+`Redo-LTService` reads the current registry settings, uninstalls the agent, and reinstalls it in one command:
+
+```powershell
+Redo-LTService
+```
+
+Or supply parameters explicitly:
+
+```powershell
+Redo-LTService -Server 'https://lt.domain.com' -ServerPassword 'pass' -LocationID 42
+```

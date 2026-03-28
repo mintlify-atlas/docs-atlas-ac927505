@@ -1,0 +1,50 @@
+---
+title: "Stop-LTService"
+description: "Stop the LTService and LTSvcMon Windows services."
+---
+
+## Synopsis
+
+Stops the `LTService` and `LTSvcMon` Windows services on the local machine. Before issuing stop commands, the function sends `Kill VNC` and `Kill Trays` commands to the running agent. It then stops both services via `sc.exe` and waits up to 1 minute for them to reach the `Stopped` state. Any remaining `LTTray`, `LTSVC`, or `LTSvcMon` processes are forcibly terminated.
+
+## Syntax
+
+```powershell
+Stop-LTService [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the command runs without actually executing it. No services are stopped and no processes are killed.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before stopping the services.
+</ParamField>
+
+## Behavior
+
+- Both `LTService` and `LTSvcMon` must already be installed. The function returns an error if either service is not found.
+- Before stopping, `Invoke-LTServiceCommand` is called with `Kill VNC` and `Kill Trays` to cleanly shut down remote control and tray processes.
+- Stop commands are issued to both services via `sc.exe stop`.
+- The function polls every 2 seconds for up to **1 minute** waiting for both services to reach the `Stopped` state.
+- If any `LTTray`, `LTSVC`, or `LTSvcMon` processes remain after the wait, they are forcibly terminated with `Stop-Process -Force`.
+
+<Note>
+  A warning is written if the services have not fully stopped within the 1-minute timeout, but the function does not exit with an error in that case.
+</Note>
+
+## Examples
+
+Stop the LabTech agent services:
+
+```powershell
+Stop-LTService
+```
+
+Preview what the command would do without making any changes:
+
+```powershell
+Stop-LTService -WhatIf
+```

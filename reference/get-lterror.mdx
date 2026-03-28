@@ -1,0 +1,64 @@
+---
+title: "Get-LTError"
+description: "Read the LTErrors.txt log file into a PowerShell object for filtering and analysis."
+---
+
+## Synopsis
+
+Reads `%ltsvcdir%\LTErrors.txt` (typically `C:\Windows\LTSVC\LTErrors.txt`) and parses each entry into a structured `PSCustomObject`. The `BasePath` is resolved via `Get-LTServiceInfo`; when that is unavailable it falls back to `%windir%\LTSVC`.
+
+`Get-LTError` is an alias for the underlying `Get-LTErrors` function.
+
+Log entries are delimited by `:::` and each entry is tab-separated into three fields: service version, timestamp, and message.
+
+## Syntax
+
+```powershell
+Get-LTError [<CommonParameters>]
+```
+
+## Parameters
+
+This command has no named parameters. It accepts only PowerShell common parameters.
+
+## Return Values
+
+Returns a collection of `PSCustomObject` items, one per log entry.
+
+<ResponseField name="ServiceVersion" type="string">
+  The version string of the LTSvc service that wrote the log entry.
+</ResponseField>
+
+<ResponseField name="Timestamp" type="datetime">
+  The parsed date and time the entry was written. Parsed with `[datetime]::Parse()` for broad international locale support; entries that cannot be parsed produce an empty value.
+</ResponseField>
+
+<ResponseField name="Message" type="string">
+  The error or status message text for the log entry.
+</ResponseField>
+
+## Examples
+
+### Filter to the last 24 hours
+
+```powershell
+Get-LTError | Where-Object { (Get-Date $_.Timestamp) -gt (Get-Date).AddHours(-24) }
+```
+
+Returns only entries written within the last 24 hours.
+
+### Browse in an interactive grid
+
+```powershell
+Get-LTError | Out-GridView
+```
+
+Opens the full log in a sortable, searchable grid window. Requires a desktop session.
+
+### Export to CSV
+
+```powershell
+Get-LTError | Export-Csv -Path C:\Temp\LTErrors.csv -NoTypeInformation
+```
+
+Saves all log entries to a CSV file for offline analysis.

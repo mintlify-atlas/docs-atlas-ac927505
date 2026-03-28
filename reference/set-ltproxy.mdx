@@ -1,0 +1,105 @@
+---
+title: "Set-LTProxy"
+description: "Configure proxy settings for the module and the installed Automate agent."
+---
+
+## Synopsis
+
+Sets proxy configuration in module memory for the current session. If an Automate agent is installed, updates the `ProxyServerURL`, `ProxyUsername`, and `ProxyPassword` values in the agent's registry and restarts the agent service to apply the changes.
+
+## Syntax
+
+```powershell
+# Set proxy with optional credentials
+Set-LTProxy [-ProxyServerURL <string>] [-ProxyUsername <string>] [-ProxyPassword <string>]
+            [-EncodedProxyUsername <string>] [-EncodedProxyPassword <string>]
+            [-WhatIf] [-Confirm] [<CommonParameters>]
+
+# Auto-detect system proxy
+Set-LTProxy -DetectProxy [-WhatIf] [-Confirm] [<CommonParameters>]
+
+# Clear all proxy settings
+Set-LTProxy -ResetProxy [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+<Warning>
+`-DetectProxy` and `-ResetProxy` are mutually exclusive with each other and with all credential parameters. `-ProxyUsername` and `-ProxyPassword` require `-ProxyServerURL` and cannot be combined with the encoded variants.
+</Warning>
+
+## Parameters
+
+<ParamField path="ProxyServerURL" type="string">
+  The proxy server URL and port to use for module operations and the installed agent.
+
+  Accepted formats: `proxyhostname.fqdn.com`, `proxyhostname.fqdn.com:8080`
+
+  Accepts pipeline input by value and by property name.
+</ParamField>
+
+<ParamField path="ProxyUsername" type="string">
+  Plain-text username for proxy authentication. Must be used together with `-ProxyPassword` and `-ProxyServerURL`.
+</ParamField>
+
+<ParamField path="ProxyPassword" type="string">
+  Plain-text password for proxy authentication. Must be used together with `-ProxyUsername` and `-ProxyServerURL`.
+</ParamField>
+
+<ParamField path="EncodedProxyUsername" type="string">
+  LabTech-encoded proxy username. Must be encoded with the agent password. Decoded automatically using the agent password before being applied. Must be used together with `-EncodedProxyPassword` and `-ProxyServerURL`.
+
+  <Note>Reinstalling the agent generates a new agent password, which will invalidate previously encoded values.</Note>
+</ParamField>
+
+<ParamField path="EncodedProxyPassword" type="string">
+  LabTech-encoded proxy password. Must be encoded with the agent password. Decoded automatically using the agent password before being applied. Must be used together with `-EncodedProxyUsername` and `-ProxyServerURL`.
+</ParamField>
+
+<ParamField path="DetectProxy" type="switch">
+  Attempts to auto-detect system proxy settings. Discovered settings are applied to the module session and, if an agent is installed, to the agent registry. Aliases: `-Detect`, `-AutoDetect`.
+
+  Cannot be combined with any other parameter.
+</ParamField>
+
+<ParamField path="ResetProxy" type="switch">
+  Clears all proxy settings from the module session and, if an agent is installed, from the agent registry. Aliases: `-Clear`, `-Reset`, `-ClearProxy`.
+
+  Cannot be combined with any other parameter.
+</ParamField>
+
+## Examples
+
+Set a proxy URL with no authentication:
+
+```powershell
+Set-LTProxy -ProxyServerURL 'http://proxy.domain.com:8080'
+```
+
+Set a proxy URL with plain-text credentials:
+
+```powershell
+Set-LTProxy -ProxyServerURL 'http://proxy.domain.com:8080' -ProxyUsername 'user' -ProxyPassword 'pass'
+```
+
+Set a proxy URL with pre-encoded credentials:
+
+```powershell
+Set-LTProxy -ProxyServerURL 'http://proxy.domain.com:8080' -EncodedProxyUsername '1GzhlerwMy0ElG9XNgiIkg==' -EncodedProxyPassword 'Duft4r7fekTp5YnQL9F0V9TbP7sKzm0n'
+```
+
+Auto-detect system proxy settings:
+
+```powershell
+Set-LTProxy -DetectProxy
+```
+
+Disable and clear proxy settings:
+
+```powershell
+Set-LTProxy -ResetProxy
+```
+
+## Related commands
+
+- [Get-LTProxy](/reference/get-ltproxy)
+- [ConvertTo-LTSecurity](/reference/convertto-ltsecurity)
+- [ConvertFrom-LTSecurity](/reference/convertfrom-ltsecurity)

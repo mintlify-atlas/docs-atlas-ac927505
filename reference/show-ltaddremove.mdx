@@ -1,0 +1,40 @@
+---
+title: "Show-LTAddRemove"
+description: "Restore the Automate agent entry in Add/Remove Programs."
+---
+
+## Synopsis
+
+Re-adds the LabTech agent's entry to Add/Remove Programs after it was hidden with [`Hide-LTAddRemove`](/reference/hide-ltaddremove). The function sets the `SystemComponent` registry value back to `0` under the agent's Uninstall key, which restores the entry to Programs and Features. If no hidden entry is found, the function imports a new registry entry so the agent appears in the list regardless.
+
+## Syntax
+
+```powershell
+Show-LTAddRemove [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the cmdlet runs without actually making any changes. Alias: `wi`.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before applying each registry change. Alias: `cf`.
+</ParamField>
+
+This cmdlet also accepts the common PowerShell parameters: `-Debug`, `-ErrorAction`, `-ErrorVariable`, `-InformationAction`, `-InformationVariable`, `-OutVariable`, `-OutBuffer`, `-PipelineVariable`, `-Verbose`, `-WarningAction`, and `-WarningVariable`.
+
+## Examples
+
+Restore the agent entry in Add/Remove Programs:
+
+```powershell
+Show-LTAddRemove
+```
+
+Preview what would change without making modifications:
+
+```powershell
+Show-LTAddRemove -WhatIf
+```

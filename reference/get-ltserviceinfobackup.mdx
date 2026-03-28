@@ -1,0 +1,59 @@
+---
+title: "Get-LTServiceInfoBackup"
+description: "Read agent service info from a backup file created by New-LTServiceBackup."
+---
+
+## Synopsis
+
+Reads `HKLM:\SOFTWARE\LabTechBackup\Service` and returns the backed-up agent registry values as a `PSCustomObject`. This is the companion to `New-LTServiceBackup`, which writes those values in the first place.
+
+The function is particularly useful in `Redo-LTService` scenarios where the live `HKLM:\SOFTWARE\LabTech\Service` key has already been removed (e.g. during an uninstall/reinstall cycle) and the current service info is no longer available. `Test-LTPorts` also falls back to this function when `Get-LTServiceInfo` returns no server address.
+
+Like `Get-LTServiceInfo`, the function synthesizes a `Server` property by splitting the raw `Server Address` registry value on `|` and trimming entries.
+
+If `HKLM:\SOFTWARE\LabTechBackup\Service` does not exist the function writes an error instructing the caller to run `New-LTServiceBackup` first.
+
+## Syntax
+
+```powershell
+Get-LTServiceInfoBackup [<CommonParameters>]
+```
+
+## Parameters
+
+This command has no named parameters. It accepts only PowerShell common parameters.
+
+## Return Values
+
+Returns a single `PSCustomObject` with the same shape as the object returned by `Get-LTServiceInfo`, sourced from the backup registry hive instead of the live service key.
+
+## Examples
+
+### Basic usage
+
+```powershell
+Get-LTServiceInfoBackup
+```
+
+Returns the backed-up agent info object.
+
+### Access the server list from backup
+
+```powershell
+(Get-LTServiceInfoBackup).Server
+```
+
+Returns the array of server URLs stored in the backup.
+
+### Use in a reinstall workflow
+
+```powershell
+# Preserve current settings before uninstalling
+New-LTServiceBackup
+
+Uninstall-LTService
+
+# Retrieve server address from backup to reinstall
+$server = (Get-LTServiceInfoBackup).Server | Select-Object -First 1
+Install-LTService -Server $server
+```

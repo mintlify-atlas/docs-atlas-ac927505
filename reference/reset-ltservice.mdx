@@ -1,0 +1,86 @@
+---
+title: "Reset-LTService"
+description: "Reset the Automate agent by clearing its ID and forcing re-registration with the server."
+---
+
+## Synopsis
+
+Removes one or more local agent identity values (`ID`, `LocationID`, `MAC`) from the registry and restarts the services, causing the agent to re-register with the Automate server. When called without parameters, all three values are cleared. If MAC filtering is enabled on the server, the agent will re-register under its original ID.
+
+<Warning>
+  This operation forces the agent to register as a new computer in Automate. If MAC filtering is **not** enabled, a duplicate agent entry will be created in the server. Use with caution in production environments.
+</Warning>
+
+## Syntax
+
+```powershell
+Reset-LTService [-ID] [-Location] [-MAC] [-Force] [-NoWait] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="ID" type="SwitchParameter">
+  Clears the `ID` (AgentID) registry value. When the service restarts, the agent will request a new ID from the server.
+</ParamField>
+
+<ParamField path="Location" type="SwitchParameter">
+  Clears the `LocationID` registry value. The agent will re-request its location assignment on next check-in.
+</ParamField>
+
+<ParamField path="MAC" type="SwitchParameter">
+  Clears the `MAC` registry value. The agent will re-register its MAC address on next check-in.
+</ParamField>
+
+<ParamField path="Force" type="SwitchParameter">
+  Overrides the probe-agent safety check. By default, the function refuses to reset an agent that has the Probe role enabled. Specify `-Force` to proceed anyway.
+</ParamField>
+
+<ParamField path="NoWait" type="SwitchParameter">
+  Skips the post-restart health check. The function exits as soon as the registry values have been removed and the services have been restarted, without waiting for the agent to receive a new ID, LocationID, and MAC from the server.
+</ParamField>
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the command runs without actually removing any registry values or restarting services.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before making any changes.
+</ParamField>
+
+## Behavior
+
+- If none of `-ID`, `-Location`, or `-MAC` are specified, all three are reset.
+- The function reads the current values from `HKLM:\SOFTWARE\LabTech\Service` and prints the old `ID`, `LocationID`, and `MAC` before making any changes.
+- Before clearing the registry values, `Stop-LTService` is called. After clearing them, `Start-LTService` is called.
+- Unless `-NoWait` is specified, the function polls for up to **1 minute** after the service starts, waiting for the agent to populate new `ID`, `LocationID`, and `MAC` values in the registry. The new values are printed when found.
+- If the agent is detected as a Probe (`Probe=1` in the registry) and `-Force` is not specified, the function terminates with an error.
+
+<Note>
+  If MAC filtering is enabled on the Automate server, clearing the MAC address and re-registering will associate the new agent record with the same MAC, allowing the server to match the agent to its existing record.
+</Note>
+
+## Examples
+
+Reset all identity values (ID, LocationID, and MAC):
+
+```powershell
+Reset-LTService
+```
+
+Reset only the agent ID:
+
+```powershell
+Reset-LTService -ID
+```
+
+Reset ID and LocationID without waiting for re-registration to complete:
+
+```powershell
+Reset-LTService -ID -Location -NoWait
+```
+
+Force a reset on a Probe agent:
+
+```powershell
+Reset-LTService -Force
+```

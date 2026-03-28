@@ -1,0 +1,58 @@
+---
+title: "ConvertTo-LTSecurity"
+description: "Encode a plain text string into a LabTech Base64 security string."
+---
+
+## Synopsis
+
+Encodes a plain-text string using Triple-DES encryption with an MD5-hashed key, then Base64-encodes the result. The output is in the format LabTech uses to store sensitive values in the agent registry (passwords, proxy credentials, and similar fields).
+
+## Syntax
+
+```powershell
+ConvertTo-LTSecurity [-InputString] <string[]> [-Key <Object>] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="InputString" type="string[]" required>
+  The plain-text string to encode. Accepts an array of strings and pipeline input by value and by property name.
+
+  - Position: 1
+</ParamField>
+
+<ParamField path="Key" type="string">
+  The encryption key. If not provided (or if `$null` is passed), the module's built-in default key is used. To encode a value for use with a specific agent, supply that agent's password string as the key.
+
+  - Pipeline input: accepted by property name
+</ParamField>
+
+## Return value
+
+Returns a `string[]` containing the Base64-encoded value for each input string, in the same order.
+
+## Examples
+
+Encode a password using the default key:
+
+```powershell
+ConvertTo-LTSecurity -InputString 'mypassword'
+```
+
+Encode via the pipeline:
+
+```powershell
+'mypassword' | ConvertTo-LTSecurity
+```
+
+Encode a value using a specific agent password as the key:
+
+```powershell
+$agentPassword = (Get-LTServiceInfo).ServerPassword | ConvertFrom-LTSecurity
+ConvertTo-LTSecurity -InputString 'mypassword' -Key $agentPassword
+```
+
+## Related commands
+
+- [ConvertFrom-LTSecurity](/reference/convertfrom-ltsecurity)
+- [Set-LTProxy](/reference/set-ltproxy)

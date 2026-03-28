@@ -1,0 +1,240 @@
+---
+title: "Troubleshooting"
+description: "Diagnose and fix common issues with the Automate agent using the PowerShell module."
+---
+
+<Warning>
+  All commands below require an **Administrator** PowerShell session. The module will throw immediately if run without elevation.
+</Warning>
+
+## Common problems
+
+<AccordionGroup>
+  <Accordion title="Agent won't start">
+    The agent services (`LTService`, `LTSvcMon`) may have crashed, been killed by security software, or left in a bad state after an update.
+
+    **Stop and restart the services cleanly:**
+
+    ```powershell
+    Stop-LTService
+    Start-LTService
+    ```
+
+    `Stop-LTService` sends kill commands to VNC and tray processes first, then stops the Windows services, then terminates any remaining `LTSVC`, `LTSvcMon`, and `LTTray` processes by name. `Start-LTService` checks for TrayPort conflicts before starting, increments the port if needed, and sends a `Send Status` command once the services are running.
+
+    **Check for recent errors in the agent log:**
+
+    ```powershell
+    Get-LTError | Where-Object { $_.Timestamp -gt (Get-Date).AddHours(-1) }
+    ```
+
+    **Restart instead of stop + start:**
+
+    ```powershell
+    Restart-LTService
+    ```
+  </Accordion>
+
+  <Accordion title="Agent not checking in">
+    The agent is running but not communicating with the server.
+
+    **Force an immediate status send:**
+
+    ```powershell
+    Invoke-LTServiceCommand 'Send Status'
+    ```
+
+    **Verify the server address stored in the registry:**
+
+    ```powershell
+    $info = Get-LTServiceInfo
+    Write-Output "Server: $($info.Server)"
+    Write-Output "Agent ID: $($info.ID)"
+    Write-Output "LocationID: $($info.LocationID)"
+    ```
+
+    If the server address is wrong or missing, the agent cannot check in. Use `Redo-LTService` with the correct `-Server` value to reinstall and point the agent at the right server.
+
+    **Test network connectivity to required ports:**
+
+    ```powershell
+    Test-LTPorts
+    ```
+
+    `Test-LTPorts` checks TCP connectivity to ports 70, 80, and 443 on the Automate server, and port 8002 on `mediator.labtechsoftware.com`. Any failure here indicates a firewall or routing problem that must be resolved independently of the module.
+
+    **Send inventory and status immediately:**
+
+    ```powershell
+    Invoke-LTServiceCommand 'Send Inventory'
+    Invoke-LTServiceCommand 'Send Status'
+    ```
+  </Accordion>
+
+  <Accordion title="Install fails">
+    `Install-LTService` can fail for several reasons. Work through these checks in order.
+
+    **Run as Administrator.** The module checks this at startup:
+
+    ```powershell
+    # Verify you are in an elevated session
+    [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent() |
+        Select-Object -Expand groups -EA 0) -match 'S-1-5-32-544')
+    # Must return True
+    ```
+
+    **.NET 3.5 not installed.** By default `Install-LTService` requires .NET 3.5. On modern systems where .NET 4.0+ is already present, skip the .NET check:
+
+    ```powershell
+    Install-LTService `
+        -Server 'https://automate.example.com' `
+        -ServerPassword 'sQWZzEDYKFFnTT0yP56vgA==' `
+        -LocationID 42 `
+        -SkipDotNet
+    ```
+
+    `-SkipDotNet` prevents the module from attempting to enable the `NetFx3` Windows optional feature, which can fail in environments without access to Windows Update or installation media.
+
+    **Previous install remnants detected.** If `Install-LTService` finds existing registry keys or the `%windir%\LTSVC` folder, it calls `Uninstall-LTService` automatically. If that fails, use `-Force`:
+
+    ```powershell
+    Install-LTService `
+        -Server 'https://automate.example.com' `
+        -ServerPassword 'sQWZzEDYKFFnTT0yP56vgA==' `
+        -LocationID 42 `
+        -Force
+    ```
+
+    **Check the install log:**
+
+    ```powershell
+    Get-Content "$env:windir\Temp\LabTech\LTAgentInstall.log" | Select-Object -Last 50
+    ```
+  </Accordion>
+
+  <Accordion title="Port conflicts">
+    `LTSvc.exe` listens on the TrayPort (default `42000`) for communication with `LTTray`. If another process owns that port the service will fail to start or will silently increment the port.
+
+    **Check which process owns the TrayPort:**
+
+    ```powershell
+    Test-LTPorts
+    ```
+
+    `Test-LTPorts` reports whether port 42000 (or the configured TrayPort) is in use and by which process. If the port is held by `LTSvc` itself, things are healthy. If another process owns it, you have a conflict.
+
+    **Install on an alternate TrayPort:**
+
+    ```powershell
+    Install-LTService `
+        -Server 'https://automate.example.com' `
+        -ServerPassword 'sQWZzEDYKFFnTT0yP56vgA==' `
+        -LocationID 42 `
+        -TrayPort 42001
+    ```
+
+    `Install-LTService` itself tests ports 42000–42009 before the MSI runs and automatically selects the first available port if the default is in use.
+
+    **Check the port after install:**
+
+    ```powershell
+    (Get-LTServiceInfo).TrayPort
+    ```
+  </Accordion>
+
+  <Accordion title="Probe agent operations denied">
+    Agents flagged as probes (`Probe = 1` in `HKLM:\SOFTWARE\LabTech\Service`) are protected from unintentional uninstalls and reinstalls. The module checks this flag at the start of `Uninstall-LTService`, `Redo-LTService`, and `Reset-LTService` and throws by default.
+
+    **Check whether the agent is a probe:**
+
+    ```powershell
+    $info = Get-LTServiceInfo
+    Write-Output "Probe: $($info.Probe)"
+    ```
+
+    **Override the protection with `-Force`:**
+
+    ```powershell
+    Uninstall-LTService -Force
+    Redo-LTService -Force
+    ```
+
+    <Warning>
+      Uninstalling a probe agent removes network scanning and monitoring capabilities for the entire site segment. Confirm with the Automate administrator before using `-Force` on a probe.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Getting errors from the log">
+    The agent writes errors to `%ltsvcdir%\LTErrors.txt` (default: `%windir%\LTSVC\LTErrors.txt`). `Get-LTError` (alias for `Get-LTErrors`) parses this file into objects with `ServiceVersion`, `Timestamp`, and `Message` properties.
+
+    **Errors from the last 24 hours:**
+
+    ```powershell
+    Get-LTError | Where-Object { $_.Timestamp -gt (Get-Date).AddHours(-24) }
+    ```
+
+    **Errors from the last hour:**
+
+    ```powershell
+    Get-LTError | Where-Object { $_.Timestamp -gt (Get-Date).AddHours(-1) }
+    ```
+
+    **Browse all errors in a sortable grid (requires a desktop session):**
+
+    ```powershell
+    Get-LTError | Out-GridView
+    ```
+
+    **Filter by message text:**
+
+    ```powershell
+    Get-LTError | Where-Object { $_.Message -match 'timeout' }
+    ```
+
+    For probe-specific errors, use `Get-LTProbeErrors` which reads `LTProbeErrors.txt` with the same object structure:
+
+    ```powershell
+    Get-LTProbeErrors | Where-Object { $_.Timestamp -gt (Get-Date).AddHours(-24) }
+    ```
+  </Accordion>
+
+  <Accordion title="32-bit PowerShell on a 64-bit OS">
+    The module detects a 32-bit PowerShell session running on a 64-bit OS at load time. When it detects this condition and WOW64 FS redirection is active, it relaunches itself in a 64-bit `powershell.exe` session automatically:
+
+    ```powershell
+    # The module does this internally — you do not need to call it manually
+    If ($env:PROCESSOR_ARCHITEW6432 -match '64' -and [IntPtr]::Size -ne 8 -and $env:PROCESSOR_ARCHITEW6432 -ne 'ARM64') {
+        Write-Warning '32-bit PowerShell session detected on 64-bit OS. Attempting to launch 64-Bit session to process commands.'
+        # ...launches SysNative\WindowsPowershell\v1.0\powershell.exe
+    }
+    ```
+
+    After the 64-bit session completes, the module prints:
+
+    ```
+    Exiting 64-bit session. Module will only remain loaded in native 64-bit PowerShell environment.
+    ```
+
+    **What this means in practice:** if you load the module from a 32-bit `powershell.exe` host (for example, some RMM script runners), the agent commands execute in a separate 64-bit process. Variables and module state from that session are not available in the calling session after the process exits. Always use a native 64-bit PowerShell host when interactive state is needed.
+  </Accordion>
+</AccordionGroup>
+
+## Useful diagnostic commands
+
+| Command | What it shows |
+|---|---|
+| `Get-LTServiceInfo` | Full agent registry object: ID, server, location, version, tray port, base path. |
+| `Get-LTServiceInfo \| Select-Object ID, Server, Version` | Quick summary. |
+| `Get-LTError \| Select-Object -Last 20` | Last 20 log entries. |
+| `Get-LTError \| Where-Object { $_.Timestamp -gt (Get-Date).AddHours(-24) }` | Errors in the last 24 hours. |
+| `Test-LTPorts` | Connectivity check to all required TCP ports (70, 80, 443 to server; 8002 to mediator). |
+| `Test-LTPorts -Quiet` | Returns `$True`/`$False` for scripted connectivity checks. |
+| `Get-LTProxy` | Current proxy configuration loaded into the module. |
+| `Invoke-LTServiceCommand 'Send Status'` | Triggers an immediate check-in. |
+| `Invoke-LTServiceCommand 'Send Inventory'` | Sends full hardware/software inventory. |
+| `Get-LTLogging` | Reports current agent logging level (Normal or Verbose). |
+| `Set-LTLogging -Verbose` | Enables verbose agent logging (restarts services). |
+| `Set-LTLogging -Normal` | Restores normal logging (restarts services). |
+| `Get-LTProbeErrors \| Select-Object -Last 20` | Last 20 probe log entries. |
+| `New-LTServiceBackup` | Backs up agent registry and files before making changes. |
+| `Get-LTServiceInfoBackup` | Reads the backup registry data (useful after uninstall). |

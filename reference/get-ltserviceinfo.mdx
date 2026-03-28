@@ -1,0 +1,85 @@
+---
+title: "Get-LTServiceInfo"
+description: "Read all Automate agent registry values into a PowerShell object."
+---
+
+## Synopsis
+
+Reads `HKLM:\SOFTWARE\LabTech\Service` into a `PSCustomObject`. In addition to the raw registry values, the function synthesizes two derived properties:
+
+- **`BasePath`** — resolved from `HKLM:\SYSTEM\CurrentControlSet\Services\LTService` (ImagePath), or falls back to `%windir%\LTSVC` if the service key is absent or the path cannot be parsed.
+- **`Server`** — a `string[]` built by splitting the raw `Server Address` value on `|`, trimming whitespace, and stripping any `~` prefix characters.
+
+The function supports `-WhatIf` and `-Confirm` via `SupportsShouldProcess`. No registry access is performed when `-WhatIf` is supplied.
+
+If the `HKLM:\SOFTWARE\LabTech\Service` key does not exist the function writes an error and returns `$null`.
+
+## Syntax
+
+```powershell
+Get-LTServiceInfo [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="WhatIf" type="switch">
+  Shows what would happen if the cmdlet runs without executing the operation. Alias: `wi`.
+</ParamField>
+
+<ParamField path="Confirm" type="switch">
+  Prompts for confirmation before reading the registry. Alias: `cf`.
+</ParamField>
+
+## Return Values
+
+Returns a single `PSCustomObject` populated from all registry values under `HKLM:\SOFTWARE\LabTech\Service` (PSPath/PSProvider/PSDrive/PSParentPath/PSChildName are excluded), plus the two synthesized properties below.
+
+<ResponseField name="Server" type="string[]">
+  Array of server URLs parsed from the raw `Server Address` registry value. Entries are split on `|`, trimmed, and stripped of any leading `~` characters.
+</ResponseField>
+
+<ResponseField name="ID" type="string">
+  The agent ID assigned by the Automate server after successful check-in.
+</ResponseField>
+
+<ResponseField name="LocationID" type="string">
+  The location ID the agent is assigned to on the Automate server.
+</ResponseField>
+
+<ResponseField name="BasePath" type="string">
+  The resolved filesystem path to the LTSVC directory (e.g. `C:\Windows\LTSVC`). Derived from the service ImagePath or defaults to `%windir%\LTSVC`.
+</ResponseField>
+
+<ResponseField name="TrayPort" type="string">
+  The TCP port that `LTSvc.exe` listens on for communication with `LTTray`. Defaults to `42000` when not set.
+</ResponseField>
+
+<ResponseField name="Probe" type="string">
+  Indicates whether this agent is a Probe agent. A value of `1` means probe mode is enabled.
+</ResponseField>
+
+## Examples
+
+### Basic usage
+
+```powershell
+Get-LTServiceInfo
+```
+
+Returns the full agent info object with all registry values and synthesized properties.
+
+### Select specific fields
+
+```powershell
+Get-LTServiceInfo | Select-Object Server, ID, LocationID
+```
+
+Displays only the server array, agent ID, and location ID.
+
+### Access a single property
+
+```powershell
+(Get-LTServiceInfo).BasePath
+```
+
+Returns the resolved LTSVC directory path, e.g. `C:\Windows\LTSVC`.

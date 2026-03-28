@@ -1,0 +1,52 @@
+---
+title: "Hide-LTAddRemove"
+description: "Hide the Automate agent entry from Add/Remove Programs (Programs and Features)."
+---
+
+## Synopsis
+
+Removes the LabTech agent's `DisplayName` registry entry from Add/Remove Programs so it no longer appears in the installed programs list. Specifically, the function sets the `SystemComponent` registry value to `1` under the agent's Uninstall key, which is the standard Windows mechanism for suppressing a program from Programs and Features.
+
+<Tip>
+  Use this during silent deployments where you don't want end users to see or uninstall the agent. The agent continues to run normally — only its visibility in the installed programs list is affected.
+</Tip>
+
+## Syntax
+
+```powershell
+Hide-LTAddRemove [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the cmdlet runs without actually making any changes. Alias: `wi`.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before applying each registry change. Alias: `cf`.
+</ParamField>
+
+This cmdlet also accepts the common PowerShell parameters: `-Debug`, `-ErrorAction`, `-ErrorVariable`, `-InformationAction`, `-InformationVariable`, `-OutVariable`, `-OutBuffer`, `-PipelineVariable`, `-Verbose`, `-WarningAction`, and `-WarningVariable`.
+
+## Examples
+
+Hide the agent from Add/Remove Programs:
+
+```powershell
+Hide-LTAddRemove
+```
+
+Preview what would change without making modifications:
+
+```powershell
+Hide-LTAddRemove -WhatIf
+```
+
+## Notes
+
+<Note>
+  `Hide-LTAddRemove` can be called automatically by `Install-LTService` when the `-Hide` switch parameter is provided. You do not need to call it separately after a fresh install if you pass `-Hide` to `Install-LTService`.
+</Note>
+
+To reverse this operation and make the agent visible again, use [`Show-LTAddRemove`](/reference/show-ltaddremove).

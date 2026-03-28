@@ -1,0 +1,64 @@
+---
+title: "Get-LTProbeErrors"
+description: "Read probe error entries from the agent log."
+---
+
+## Synopsis
+
+Reads `%ltsvcdir%\LTProbeErrors.txt` (typically `C:\Windows\LTSVC\LTProbeErrors.txt`) and parses each entry into a structured `PSCustomObject`. The `BasePath` is resolved via `Get-LTServiceInfo`; when that is unavailable it falls back to `%windir%\LTSVC`.
+
+This function mirrors the structure of `Get-LTError` but targets the probe-specific log file. It is useful on agents that have the Probe role enabled (`(Get-LTServiceInfo).Probe -eq '1'`).
+
+Log entries are delimited by `:::` and each entry is tab-separated into three fields: service version, timestamp, and message.
+
+## Syntax
+
+```powershell
+Get-LTProbeErrors [<CommonParameters>]
+```
+
+## Parameters
+
+This command has no named parameters. It accepts only PowerShell common parameters.
+
+## Return Values
+
+Returns a collection of `PSCustomObject` items, one per log entry.
+
+<ResponseField name="ServiceVersion" type="string">
+  The version string of the LTSvc service that wrote the log entry.
+</ResponseField>
+
+<ResponseField name="Timestamp" type="datetime">
+  The parsed date and time the entry was written. Parsed with `[datetime]::Parse()` for broad international locale support; entries that cannot be parsed produce an empty value.
+</ResponseField>
+
+<ResponseField name="Message" type="string">
+  The probe error or status message text for the log entry.
+</ResponseField>
+
+## Examples
+
+### Filter to the last 24 hours
+
+```powershell
+Get-LTProbeErrors | Where-Object { (Get-Date $_.Timestamp) -gt (Get-Date).AddHours(-24) }
+```
+
+Returns only probe error entries written within the last 24 hours.
+
+### Browse in an interactive grid
+
+```powershell
+Get-LTProbeErrors | Out-GridView
+```
+
+Opens the full probe error log in a sortable, searchable grid window. Requires a desktop session.
+
+### Count errors by message
+
+```powershell
+Get-LTProbeErrors | Group-Object Message | Sort-Object Count -Descending
+```
+
+Aggregates probe errors by message text to identify the most frequent issues.

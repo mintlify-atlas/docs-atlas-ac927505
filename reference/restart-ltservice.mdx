@@ -1,0 +1,45 @@
+---
+title: "Restart-LTService"
+description: "Restart the LTService and LTSvcMon Windows services."
+---
+
+## Synopsis
+
+Restarts the `LTService` and `LTSvcMon` Windows services by calling `Stop-LTService` followed by `Start-LTService`. All behavior from those two functions applies, including the pre-stop `Kill VNC`/`Kill Trays` commands, the port conflict check on startup, the up-to-1-minute wait for each transition, and the final `Send Status` check-in command.
+
+## Syntax
+
+```powershell
+Restart-LTService [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the command runs without actually executing it. Neither `Stop-LTService` nor `Start-LTService` perform any real changes.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before restarting the services.
+</ParamField>
+
+## Behavior
+
+- Both `LTService` and `LTSvcMon` must already be installed. The function returns an error if either service is not found.
+- Calls `Stop-LTService` first. If that call fails, the function returns without attempting to start the services.
+- Calls `Start-LTService` after a successful stop. If that call fails, the error is written and the function returns.
+- On success, outputs `Services Restarted successfully.`
+
+## Examples
+
+Restart the LabTech agent services:
+
+```powershell
+Restart-LTService
+```
+
+Preview what the command would do without making any changes:
+
+```powershell
+Restart-LTService -WhatIf
+```

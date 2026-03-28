@@ -1,0 +1,98 @@
+---
+title: "Uninstall-LTService"
+description: "Uninstall the ConnectWise Automate agent and clean up all remnants."
+---
+
+## Synopsis
+
+Fully removes the LabTech (ConnectWise Automate) agent from the local machine, including services, files, and registry keys.
+
+## Description
+
+`Uninstall-LTService` performs a thorough removal of the ConnectWise Automate agent:
+
+1. Stops all running LabTech services (`LTService`, `LTSvcMon`, `LabVNC`).
+2. Downloads the current agent installer MSI from the server and runs an MSI uninstall (`msiexec /x`).
+3. Downloads and runs `Agent_Uninstall.exe` (`LabUninstall.exe`) from the server to perform a deep clean. On Automate 2025 and later, the extracted `Uninstall.exe` sub-process is also executed.
+4. Removes all remaining LabTech services via `sc.exe delete`.
+5. Deletes the agent file directory (`%windir%\LTSVC` by default) and the `%windir%\temp\_ltupdate` folder.
+6. Removes all known LabTech registry keys across `HKLM`, `HKCU`, `HKCR`, and `HKU`.
+
+If no server URL is provided, the function reads the server address from the registry via `Get-LTServiceInfo`. If the server is unreachable, it falls back to downloading `Agent_Uninstall.exe` from the ConnectWise S3 assets bucket.
+
+<Warning>
+`Uninstall-LTService` must be run in a PowerShell session with **Administrator** privileges.
+
+**Probe agent protection:** If the installed agent is detected as a probe agent, the uninstall is blocked and an error is thrown. Use `-Force` to override this check. Removing a probe agent without understanding the implications may affect monitored infrastructure.
+</Warning>
+
+## Syntax
+
+```powershell
+Uninstall-LTService [[-Server] <String[]>] [-Backup] [-Force] [-WhatIf] [-Confirm]
+    [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="Server" type="String[]">
+  The URL to the LabTech/Automate server. Used to download the uninstall utilities
+  (`RemoteAgent.msi` and `Agent_Uninstall.exe`).
+
+  If not provided, the function reads the server address from the registry using
+  `Get-LTServiceInfo`. If that also fails, it prompts interactively.
+
+  Accepts pipeline input by property name.
+
+  **Example:** `https://lt.domain.com`
+</ParamField>
+
+<ParamField path="Backup" type="SwitchParameter">
+  If specified, runs `New-LTServiceBackup` before beginning the uninstall process.
+  This preserves current agent settings (server, location, password hash) so they
+  can be recovered later by `Redo-LTService` via `Get-LTServiceInfoBackup`.
+</ParamField>
+
+<ParamField path="Force" type="SwitchParameter">
+  Allows the uninstall to proceed even if the agent is detected as a probe agent.
+  Without this switch, the function throws a terminating error when a probe is detected.
+</ParamField>
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what actions would be performed without actually executing them. No files are
+  downloaded or removed.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before executing each significant action (file downloads,
+  MSI uninstall, service removal, file/registry deletion).
+</ParamField>
+
+## Examples
+
+**Uninstall using the server address stored in the registry:**
+
+```powershell
+Uninstall-LTService
+```
+
+Reads the server URL from the registry, downloads uninstall utilities from that server,
+and fully removes the agent.
+
+---
+
+**Uninstall with an explicit server URL:**
+
+```powershell
+Uninstall-LTService -Server 'https://lt.domain.com'
+```
+
+Uses the provided server URL to download the uninstall utilities. Useful when the
+registry is already partially cleaned or when running remotely without a live agent.
+
+## Notes
+
+- Uninstall files are downloaded to `%windir%\Temp\` and cleaned up after the process completes.
+- If the MSI or uninstaller EXE cannot be downloaded from the server (e.g., server is offline), `Agent_Uninstall.exe` is retrieved from the ConnectWise public S3 bucket as a fallback.
+- After uninstall, the function checks for remnants. If `%windir%\ltsvc`, `%windir%\temp\_ltupdate`, or the LabTech registry keys still exist, a warning is written recommending a reboot and retry.
+- To restore the agent after an uninstall, use `Redo-LTService` or `Install-LTService`.

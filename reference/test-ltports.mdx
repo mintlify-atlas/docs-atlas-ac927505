@@ -1,0 +1,95 @@
+---
+title: "Test-LTPorts"
+description: "Test network connectivity to the Automate server on required ports."
+---
+
+## Synopsis
+
+Attempts TCP connections to all ports required by the Automate agent and verifies that the LTTray port is available locally. Use this before installation to confirm that network access is in place.
+
+**Ports tested against the server:**
+
+| Port | Protocol |
+|------|----------|
+| 70   | TCP (Gopher — used by Automate) |
+| 80   | HTTP |
+| 443  | HTTPS |
+| 8002 | TCP to `mediator.labtechsoftware.com` |
+
+**TrayPort check (local):**
+
+The function checks whether the configured TrayPort (default `42000`) is already in use via `netstat`. If the port is bound by `LTSvc.exe` that is reported as normal; if it is bound by any other process it is reported as an error.
+
+When no `-Server` is supplied the function calls `Get-LTServiceInfo` to discover the server address. If that returns nothing it falls back to `Get-LTServiceInfoBackup`. The function accepts server values from the pipeline.
+
+## Syntax
+
+```powershell
+Test-LTPorts [[-Server] <string[]>] [[-TrayPort] <int>] [-Quiet] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="Server" type="string[]">
+  One or more Automate server URLs to test. Accepts values from the pipeline and from pipeline-by-property-name.
+
+  Example: `https://lt.domain.com`
+
+  If omitted, the server address is read from `Get-LTServiceInfo` (or `Get-LTServiceInfoBackup` as a fallback).
+</ParamField>
+
+<ParamField path="TrayPort" type="int">
+  The port that `LTSvc.exe` uses to communicate with `LTTray`. Checked locally to verify availability. If not supplied the value is read from `Get-LTServiceInfo`; if that also returns nothing the default of `42000` is used.
+
+  Valid range: 1–65530.
+</ParamField>
+
+<ParamField path="Quiet" type="switch">
+  Returns a `boolean` instead of descriptive text output. Returns `$true` when the TrayPort is available, `$false` when it is occupied by another process. When used with `-Server`, calls `Test-Connection` against the server and returns immediately.
+</ParamField>
+
+## Return Values
+
+Without `-Quiet`, the function writes string output describing each connection attempt and its result, ending with `Test-LTPorts Finished`.
+
+With `-Quiet`, the function returns a `boolean`:
+
+<ResponseField name="(boolean)" type="bool">
+  `$true` if the TrayPort is available (or the server responds to `Test-Connection`); `$false` if the TrayPort is occupied by a non-LTSvc process.
+</ResponseField>
+
+## Examples
+
+### Test a specific server
+
+```powershell
+Test-LTPorts -Server 'https://lt.domain.com'
+```
+
+Tests ports 70, 80, 443 against `lt.domain.com` and port 8002 against `mediator.labtechsoftware.com`, then reports results to the console.
+
+### Silent connectivity check
+
+```powershell
+Test-LTPorts -Quiet
+```
+
+Returns `$true` if the local TrayPort is free, `$false` if it is in use by another process. Suitable for use in conditional logic.
+
+### Test with a custom TrayPort
+
+```powershell
+Test-LTPorts -Server 'https://lt.domain.com' -TrayPort 42001
+```
+
+Tests server ports and checks whether port `42001` is available locally.
+
+### Use in a pre-install check
+
+```powershell
+if (Test-LTPorts -Server 'https://lt.domain.com' -Quiet) {
+    Install-LTService -Server 'https://lt.domain.com' -Password 'secret'
+} else {
+    Write-Warning 'Port check failed. Resolve port conflicts before installing.'
+}
+```

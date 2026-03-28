@@ -1,0 +1,84 @@
+---
+title: 'LabTech PowerShell Module'
+description: 'A comprehensive PowerShell module for managing the LabTech (ConnectWise Automate) agent — install, uninstall, restart, diagnose, and configure agents from the command line.'
+---
+
+The LabTech PowerShell Module is a set of cmdlets that interface directly with the LabTech (ConnectWise Automate) agent service on Windows machines. It lets you install, uninstall, restart, update, and diagnose agents entirely from PowerShell — no GUI required.
+
+The module reads and writes to the LabTech registry hive (`HKLM:\SOFTWARE\LabTech\Service`), communicates with the LabTech server over HTTP/HTTPS, and controls the `LTService` and `LTSvcMon` Windows services.
+
+```
+Module version:  1.9.3
+Module GUID:     f1f06c84-00c8-11ea-b6e8-000c29aaa7df
+Author:          Chris Taylor — labtechconsulting.com
+```
+
+## Supported versions
+
+The module has been tested against the following LabTech / ConnectWise Automate server versions:
+
+| Range | Notes |
+|-------|-------|
+| v10.5 – v12 | Legacy on-premises versions |
+| v2019 – v2024 | Current ConnectWise Automate releases |
+
+The module detects the server version at runtime (via `Agent.aspx`) and adjusts download URLs and installer behaviour accordingly. For example, the MSI bundle format introduced in 2024 Patch 7 is handled automatically.
+
+## PowerShell compatibility
+
+| Version | Support level |
+|---------|--------------|
+| PowerShell 1 | Not supported. The module exits immediately with a warning if `$PSVersionTable` is absent. |
+| PowerShell 2 | Loads and runs. A verbose notice is emitted: *"PS2 Detected. PowerShell Version 3.0 or higher may be required for full functionality."* |
+| PowerShell 3+ | Fully supported. Recommended for all production use. |
+
+```powershell
+# From the module source — version gate at load time
+If (-not ($PSVersionTable)) {
+    Write-Warning 'PS1 Detected. PowerShell Version 2.0 or higher is required.'
+    return
+}
+ElseIf ($PSVersionTable.PSVersion.Major -lt 3) {
+    Write-Verbose 'PS2 Detected. PowerShell Version 3.0 or higher may be required for full functionality.'
+}
+```
+
+## Requirements
+
+<Note>
+All functions that install, uninstall, or modify the agent service require an **Administrator** PowerShell session. The module checks for membership in the local Administrators group (SID `S-1-5-32-544`) and throws if the check fails.
+</Note>
+
+- **Operating system:** Windows only. The module manages Windows services, registry keys under `HKLM:\SOFTWARE\LabTech`, and native binaries (`sc.exe`, `msiexec.exe`, `regsvr32.exe`).
+- **Elevation:** Run PowerShell as Administrator.
+- **Network:** Outbound HTTPS access to the LabTech server is required for install, uninstall, and update operations.
+- **.NET Framework:** Install-LTService requires .NET 3.5. If it is absent, the module attempts to enable it via `Enable-WindowsOptionalFeature` or DISM before proceeding.
+
+## What the module does
+
+The module exports 25 public functions and 2 aliases (`Get-LTError` and `ReInstall-LTService`). Key capabilities:
+
+| Area | Functions |
+|------|-----------|
+| **Lifecycle** | `Install-LTService`, `Uninstall-LTService`, `Redo-LTService`, `Update-LTService` |
+| **Service control** | `Start-LTService`, `Stop-LTService`, `Restart-LTService`, `Reset-LTService` |
+| **Diagnostics** | `Get-LTServiceInfo`, `Get-LTServiceSettings`, `Get-LTErrors`, `Test-LTPorts`, `Get-LTLogging`, `Set-LTLogging` |
+| **Backup / restore** | `New-LTServiceBackup`, `Get-LTServiceInfoBackup` |
+| **Add/Remove Programs** | `Hide-LTAddRemove`, `Show-LTAddRemove`, `Rename-LTAddRemove` |
+| **Proxy** | `Get-LTProxy`, `Set-LTProxy` |
+| **Agent commands** | `Invoke-LTServiceCommand` |
+| **Security** | `ConvertFrom-LTSecurity`, `ConvertTo-LTSecurity` |
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Go from zero to a working agent in five steps.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    All the ways to load the module — one-liner, manual import, or Git clone.
+  </Card>
+  <Card title="Command reference" icon="terminal" href="/reference/install-ltservice">
+    Full parameter reference for every exported function.
+  </Card>
+</CardGroup>

@@ -1,0 +1,52 @@
+---
+title: "Set-LTLogging"
+description: "Configure the agent logging verbosity level."
+---
+
+## Synopsis
+
+Stops the LabTech service, writes the selected logging level to `HKLM:\SOFTWARE\LabTech\Service\Settings` (`Debuging` key), then restarts the service. Calls `Get-LTLogging` on success to confirm the new value.
+
+## Syntax
+
+```powershell
+Set-LTLogging [-Normal] [-Verbose] [<CommonParameters>]
+```
+
+<Note>
+Exactly one of `-Normal` or `-Verbose` must be provided. The cmdlet throws a terminating error if neither switch is supplied.
+</Note>
+
+## Parameters
+
+<ParamField path="Normal" type="switch">
+  Sets the logging level to Normal. Writes registry value `Debuging = 1`.
+</ParamField>
+
+<ParamField path="Verbose" type="switch">
+  Sets the logging level to Verbose. Writes registry value `Debuging = 1000`. Use this level when troubleshooting agent connectivity or behavior.
+</ParamField>
+
+## Examples
+
+Set logging to normal:
+
+```powershell
+Set-LTLogging -Normal
+```
+
+Set logging to verbose for troubleshooting:
+
+```powershell
+Set-LTLogging -Verbose
+```
+
+Confirm the result immediately after setting:
+
+```powershell
+Set-LTLogging -Normal; Get-LTLogging
+```
+
+## Related commands
+
+- [Get-LTLogging](/reference/get-ltlogging)

@@ -1,0 +1,42 @@
+---
+title: "Get-LTServiceSettings"
+description: "Read the Automate agent settings registry key into a PowerShell object."
+---
+
+## Synopsis
+
+Reads `HKLM:\SOFTWARE\LabTech\Service\Settings` and returns its values as a `PSCustomObject`. Standard PS provider properties (`PSPath`, `PSParentPath`, `PSChildName`, `PSDrive`, `PSProvider`) are excluded from the output.
+
+If the key does not exist the function writes an error and returns nothing.
+
+## Syntax
+
+```powershell
+Get-LTServiceSettings [<CommonParameters>]
+```
+
+## Parameters
+
+This command has no named parameters. It accepts only PowerShell common parameters.
+
+## Return Values
+
+Returns a single `PSCustomObject` populated from all registry values under `HKLM:\SOFTWARE\LabTech\Service\Settings`. The specific properties present depend on the installed agent version and configuration.
+
+## Examples
+
+### Basic usage
+
+```powershell
+Get-LTServiceSettings
+```
+
+Returns the agent settings object with all values from the Settings registry key.
+
+### Inspect available properties
+
+```powershell
+Get-LTServiceSettings | Get-Member -MemberType NoteProperty
+```
+
+Lists all property names exposed by the settings key on the current machine.

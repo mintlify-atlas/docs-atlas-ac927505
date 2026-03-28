@@ -1,0 +1,80 @@
+---
+title: "Invoke-LTServiceCommand"
+description: "Send a service control command to the running Automate agent."
+---
+
+## Synopsis
+
+Sends one or more named control commands to the running `LTService` agent. Commands are dispatched as service control codes via `sc.exe control LTService <code>`. The function accepts pipeline input and processes multiple commands in a single call.
+
+## Syntax
+
+```powershell
+Invoke-LTServiceCommand [-Command] <String[]> [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="Command" type="String[]" required>
+  One or more commands to send to the agent. Accepts pipeline input. Must be one of the validated command names listed in the [Known commands](#known-commands) section below.
+
+  - **Position:** 1
+  - **Pipeline input:** yes (ByValue)
+</ParamField>
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the command runs without actually sending any control codes.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before sending each command.
+</ParamField>
+
+## Known commands
+
+The `-Command` parameter is validated against the following set. Passing a value not in this list will produce a validation error.
+
+| Command | Control code | Description |
+|---|---|---|
+| `Update Schedule` | 128 | Refresh the agent's scheduled tasks from the server. |
+| `Send Inventory` | 129 | Collect and upload a full hardware/software inventory. |
+| `Send Drives` | 130 | Upload disk drive information. |
+| `Send Processes` | 131 | Upload the current process list. |
+| `Send Spyware List` | 132 | Upload spyware scan results. |
+| `Send Apps` | 133 | Upload the installed applications list. |
+| `Send Events` | 134 | Upload Windows event log entries. |
+| `Send Printers` | 135 | Upload printer information. |
+| `Send Status` | 136 | Send an immediate status check-in to the server. Used internally by `Start-LTService` after startup. |
+| `Send Screen` | 137 | Capture and upload a screenshot. |
+| `Send Services` | 138 | Upload the Windows services list. |
+| `Analyze Network` | 139 | Run a network analysis and upload results. |
+| `Write Last Contact Date` | 140 | Update the last contact timestamp in the registry. |
+| `Kill VNC` | 141 | Terminate any active VNC/remote control session. Used internally by `Stop-LTService` before stopping. |
+| `Kill Trays` | 142 | Terminate the LTTray process. Used internally by `Stop-LTService` before stopping. |
+| `Send Patch Reboot` | 143 | Notify the server of a pending patch-related reboot. |
+| `Run App Care Update` | 144 | Trigger an App Care update. |
+| `Start App Care Daytime Patching` | 145 | Start the App Care daytime patching process. |
+
+<Note>
+  `LTService` must be installed and in the `Running` state. If the service is stopped or not found, a warning is written and no command is sent.
+</Note>
+
+## Examples
+
+Send an immediate status check-in:
+
+```powershell
+Invoke-LTServiceCommand 'Send Status'
+```
+
+Kill VNC and tray processes in a single call:
+
+```powershell
+Invoke-LTServiceCommand ('Kill VNC', 'Kill Trays')
+```
+
+Send multiple commands via the pipeline:
+
+```powershell
+'Send Inventory', 'Send Apps' | Invoke-LTServiceCommand
+```

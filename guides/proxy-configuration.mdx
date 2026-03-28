@@ -1,0 +1,131 @@
+---
+title: "Proxy configuration"
+description: "Configure proxy settings for the module and the installed Automate agent."
+---
+
+## Overview
+
+The LabTech PowerShell module maintains an in-memory proxy object (`$Script:LTProxy`) that is applied automatically to every download operation — including `Install-LTService`, `Uninstall-LTService`, and `Update-LTService`. Two functions manage this state:
+
+| Function | Purpose |
+|---|---|
+| `Get-LTProxy` | Reads proxy settings from the installed agent registry (or system settings if no agent is present) and loads them into module memory. |
+| `Set-LTProxy` | Writes proxy settings to module memory and, if the agent is installed, persists them to `HKLM:\SOFTWARE\LabTech\Service\Settings` and restarts the agent services. |
+
+Proxy settings are stored in the agent registry as encoded strings. `Set-LTProxy` handles encoding automatically using `ConvertTo-LTSecurity` before writing.
+
+## Reading current proxy settings
+
+`Get-LTProxy` has no parameters. It reads from the installed agent's registry settings first. If no agent is present, it falls back to the system-level proxy discovery.
+
+The discovered settings are loaded into `$Script:LTProxy` for use by all module functions during the current session, and the object is returned.
+
+```powershell
+# Read and display the current proxy configuration
+Get-LTProxy
+```
+
+Example output:
+
+```powershell
+ProxyServerURL : http://proxy.example.com:8080
+ProxyUsername  : domain\proxyuser
+ProxyPassword  : s3cr3t
+Enabled        : True
+```
+
+```powershell
+# Check whether a proxy is active
+$proxy = Get-LTProxy
+if ($proxy.Enabled) {
+    Write-Output "Proxy enabled: $($proxy.ProxyServerURL)"
+} else {
+    Write-Output "No proxy configured."
+}
+```
+
+## Setting a proxy server
+
+Use `Set-LTProxy -ProxyServerURL` to configure the proxy for module operations and for the installed agent.
+
+```powershell
+# Proxy without authentication
+Set-LTProxy -ProxyServerURL 'proxy.example.com:8080'
+
+# Proxy with plain-text credentials
+Set-LTProxy `
+    -ProxyServerURL 'proxy.example.com:8080' `
+    -ProxyUsername 'domain\proxyuser' `
+    -ProxyPassword 'MyProxyPassword'
+```
+
+When an agent is installed and running, `Set-LTProxy` encodes the username and password with `ConvertTo-LTSecurity`, writes them to `HKLM:\SOFTWARE\LabTech\Service\Settings`, and restarts `LTService` and `LTSvcMon` for the changes to take effect.
+
+### Using encoded credentials
+
+If the proxy credentials are already encoded with the agent password (for example, from a backup or existing registry values), use the `EncodedProxyUsername` and `EncodedProxyPassword` parameters. The module decodes them using `ConvertFrom-LTSecurity` before applying.
+
+```powershell
+Set-LTProxy `
+    -ProxyServerURL 'proxy.example.com:8080' `
+    -EncodedProxyUsername '1GzhlerwMy0ElG9XNgiIkg==' `
+    -EncodedProxyPassword 'Duft4r7fekTp5YnQL9F0V9TbP7sKzm0n'
+```
+
+## Auto-detecting system proxy
+
+`-DetectProxy` instructs `Set-LTProxy` to use `[System.Net.WebRequest]::GetSystemWebProxy()` and `netsh winhttp show proxy` to discover the proxy in use on the system. Detected settings are applied to both the module session and the agent registry.
+
+```powershell
+Set-LTProxy -DetectProxy
+```
+
+## Disabling the proxy
+
+`-ResetProxy` clears all proxy settings from the module session and from the agent registry.
+
+```powershell
+Set-LTProxy -ResetProxy
+```
+
+After resetting, `$Script:LTProxy.Enabled` is `$False` and a plain `System.Net.WebProxy` (no proxy) is assigned to the module's web client.
+
+## How proxy settings apply to downloads
+
+When `$Script:LTProxy.Enabled` is `$True`, all web requests made by the module automatically route through the configured proxy. This includes:
+
+- **`Install-LTService`** — MSI download from the server or installer token URL
+- **`Uninstall-LTService`** — uninstall MSI and `Agent_Uninstall.exe` downloads
+- **`Update-LTService`** — `LabtechUpdate_<version>.zip` download
+
+The proxy is applied at the `System.Net.WebRequest` level before each download:
+
+```powershell
+# Internally the module does this for each request when proxy is enabled:
+$request.Proxy = $Script:LTWebProxy
+```
+
+This means calling `Get-LTProxy` (or `Set-LTProxy`) before any install or update operation ensures the correct proxy is in use for the entire operation.
+
+## Recommended workflow for proxy environments
+
+```powershell
+# 1. Confirm the proxy is detected from the installed agent or system settings
+Get-LTProxy
+
+# 2. If needed, set it explicitly before running lifecycle commands
+Set-LTProxy -ProxyServerURL 'proxy.example.com:8080' -ProxyUsername 'domain\user' -ProxyPassword 'pass'
+
+# 3. Install proceeds through the proxy
+Install-LTService `
+    -Server 'https://automate.example.com' `
+    -InstallerToken 'abc123-token' `
+    -LocationID 42
+
+# 4. After install the module re-reads proxy settings and applies them to the new agent
+# (Install-LTService calls Set-LTProxy automatically when $Script:LTProxy.Enabled is $True)
+```
+
+<Tip>
+  If you are deploying to systems where the module runs before the agent is installed, call `Set-LTProxy` explicitly with the correct URL before calling `Install-LTService`. The proxy will be written to the agent's registry as part of the install process.
+</Tip>

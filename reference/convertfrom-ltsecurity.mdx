@@ -1,0 +1,62 @@
+---
+title: "ConvertFrom-LTSecurity"
+description: "Decode a LabTech Base64-encoded security string."
+---
+
+## Synopsis
+
+Decodes strings that LabTech stores encoded in the registry (such as the server password, proxy username, and proxy password). The function uses Triple-DES decryption with an MD5-hashed key. If decoding with the supplied key fails and `-Force` is set (the default), alternate default keys are tried automatically.
+
+## Syntax
+
+```powershell
+ConvertFrom-LTSecurity [-InputString] <string[]> [-Key <string[]>] [-Force] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="InputString" type="string[]" required>
+  The Base64-encoded string to decode. Accepts an array of strings.
+
+  - Position: 1
+  - Pipeline input: accepted by value and by property name
+</ParamField>
+
+<ParamField path="Key" type="string[]">
+  The decryption key. If not provided (or if `$null` is passed), the module's built-in default key is used. Supply an array to try multiple keys in order.
+
+  - Pipeline input: accepted by property name
+</ParamField>
+
+<ParamField path="Force" type="switch" default="true">
+  When set, the function retries decoding with alternate default keys if the provided key fails. Defaults to `$True`. Pass `-Force:$False` to suppress fallback attempts.
+</ParamField>
+
+## Return value
+
+Returns a `string[]` containing the decoded value for each input string, in the same order. Returns `$null` if no key succeeds for a given input.
+
+## Examples
+
+Decode a single encoded string:
+
+```powershell
+ConvertFrom-LTSecurity -InputString 'encodedstring=='
+```
+
+Decode the server password from agent service info via the pipeline:
+
+```powershell
+Get-LTServiceInfo | Select-Object -Expand 'ServerPassword' | ConvertFrom-LTSecurity
+```
+
+Decode using a specific key without falling back to defaults:
+
+```powershell
+ConvertFrom-LTSecurity -InputString 'encodedstring==' -Key 'MyCustomKey' -Force:$False
+```
+
+## Related commands
+
+- [ConvertTo-LTSecurity](/reference/convertto-ltsecurity)
+- [Set-LTProxy](/reference/set-ltproxy)

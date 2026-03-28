@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "LabTech PowerShell Module",
+  "projectType": "sdk-library",
+  "projectName": "LabTech PowerShell Module",
+  "projectDescription": "A comprehensive PowerShell module for managing ConnectWise Automate (LabTech) agents — install, configure, repair, and monitor the LTService on Windows endpoints.",
   "theme": "aspen",
-  "colors": {
-    "primary": "#2563EB",
-    "light": "#3B82F6",
-    "dark": "#1D4ED8"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/LabtechConsulting/LabTech-Powershell-Module"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/LabtechConsulting/LabTech-Powershell-Module"
-    }
-  },
+  "primaryColor": "#2563EB",
+  "lightColor": "#3B82F6",
+  "darkColor": "#1D4ED8",
   "navigation": {
     "tabs": [
       {
@@ -98,5 +86,44 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Install, uninstall, and reinstall the ConnectWise Automate (LabTech) agent via MSI or installer token",
+    "Start, stop, and restart LTService and LTSvcMon Windows services",
+    "Read and expose agent registry configuration as PowerShell objects",
+    "Configure and persist proxy settings for all module communications",
+    "Encode and decode LabTech security strings (Base64 with key)",
+    "Backup and restore agent service configuration",
+    "Test connectivity to LabTech server ports",
+    "Control Add/Remove Programs visibility and display name",
+    "Compatible with PowerShell v2+ and both 32-bit and 64-bit environments",
+    "Supports -WhatIf and -Confirm for all destructive operations"
+  ],
+  "publicApiSurface": [
+    "Install-LTService",
+    "Uninstall-LTService",
+    "Redo-LTService",
+    "Update-LTService",
+    "Start-LTService",
+    "Stop-LTService",
+    "Restart-LTService",
+    "Reset-LTService",
+    "Invoke-LTServiceCommand",
+    "Get-LTServiceInfo",
+    "Get-LTServiceSettings",
+    "Get-LTServiceInfoBackup",
+    "New-LTServiceBackup",
+    "Get-LTError",
+    "Get-LTProbeErrors",
+    "Test-LTPorts",
+    "Get-LTProxy",
+    "Set-LTProxy",
+    "Get-LTLogging",
+    "Set-LTLogging",
+    "ConvertFrom-LTSecurity",
+    "ConvertTo-LTSecurity",
+    "Hide-LTAddRemove",
+    "Show-LTAddRemove",
+    "Rename-LTAddRemove"
+  ]
 }

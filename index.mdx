@@ -1,97 +1,81 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "LabTech PowerShell Module"
+description: "A comprehensive PowerShell module for managing ConnectWise Automate (LabTech) agents on Windows endpoints."
 ---
 
-## Setting up
+The LabTech PowerShell Module gives you full control over the ConnectWise Automate agent from the command line. Install, configure, repair, and monitor the LTService on any Windows machine — whether you're running scripts manually or deploying via RMM automation.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Import the module and manage your first agent in minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Installation" icon="download" href="/installation">
+    All the ways to import and use the module
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Agent Lifecycle" icon="arrows-rotate" href="/guides/agent-lifecycle">
+    Install, reinstall, update, and remove agents
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Command Reference" icon="terminal" href="/reference/install-ltservice">
+    Full reference for all 25 cmdlets
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What you can do
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="Install agents" icon="circle-plus" href="/reference/install-ltservice">
+    Deploy the Automate agent from any LabTech server with full parameter control
+  </Card>
+  <Card title="Service control" icon="play" href="/reference/start-ltservice">
+    Start, stop, restart, and reset LTService and LTSvcMon
+  </Card>
+  <Card title="Diagnostics" icon="magnifying-glass" href="/reference/get-ltserviceinfo">
+    Read registry config, error logs, and probe errors as PowerShell objects
+  </Card>
+  <Card title="Proxy support" icon="network-wired" href="/guides/proxy-configuration">
+    Configure proxy settings that apply to all module communications
+  </Card>
+  <Card title="Security encoding" icon="lock" href="/guides/security-encoding">
+    Encode and decode LabTech security strings for script automation
+  </Card>
+  <Card title="Backup & restore" icon="floppy-disk" href="/reference/new-ltservicebackup">
+    Back up agent configuration before making changes
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Getting started
 
-## Need inspiration?
+<Steps>
+  <Step title="Import the module">
+    Load the module directly from the internet in any PowerShell session:
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    ```powershell
+    (New-Object Net.WebClient).DownloadString('https://bit.ly/LTPoSh') | iex
+    ```
+  </Step>
+  <Step title="Check agent status">
+    Inspect the currently installed agent's registry settings:
+
+    ```powershell
+    Get-LTServiceInfo
+    ```
+  </Step>
+  <Step title="Install or reinstall">
+    Install the agent on a new machine or reinstall it on an existing one:
+
+    ```powershell
+    Install-LTService -Server 'https://lt.domain.com' -ServerPassword 'yourpassword' -LocationID 1
+    ```
+  </Step>
+  <Step title="Verify connectivity">
+    Test that required ports are reachable before installation:
+
+    ```powershell
+    Test-LTPorts -Server 'https://lt.domain.com'
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  The module requires **Administrator privileges** for all install, uninstall, and service operations. Run your PowerShell session as Administrator.
+</Note>

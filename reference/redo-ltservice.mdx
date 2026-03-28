@@ -1,0 +1,147 @@
+---
+title: "Redo-LTService"
+description: "Reinstall the ConnectWise Automate agent, preserving existing settings where possible."
+---
+
+## Synopsis
+
+Performs a full reinstall of the LabTech (ConnectWise Automate) agent by combining `Uninstall-LTService` and `Install-LTService` in a single operation, automatically reading current settings from the registry.
+
+## Description
+
+`Redo-LTService` is a convenience wrapper that orchestrates a complete agent reinstall:
+
+1. Reads current agent settings (server URL, location ID) from the registry via `Get-LTServiceInfo`.
+2. If the agent is not currently installed, falls back to `Get-LTServiceInfoBackup` to recover settings from a prior backup.
+3. Optionally runs `New-LTServiceBackup` if `-Backup` is specified.
+4. Calls `Uninstall-LTService` with the gathered server address.
+5. Waits 20 seconds for the uninstall to settle.
+6. Calls `Install-LTService` with the gathered (or overridden) settings.
+
+If required settings cannot be found automatically, the function prompts interactively for the server URL and LocationID.
+
+Also available as the alias `ReInstall-LTService`.
+
+<Warning>
+`Redo-LTService` must be run in a PowerShell session with **Administrator** privileges.
+
+**Probe agent protection:** If the current agent is detected as a probe, the reinstall is blocked unless `-Force` is specified.
+</Warning>
+
+## Syntax
+
+```powershell
+# Deployment parameter set (ServerPassword)
+Redo-LTService [[-Server] <String[]>] [[-ServerPassword] <String>] [[-LocationID] <String>]
+    [-Backup] [-Hide] [[-Rename] <String>] [-SkipDotNet] [-Force] [-WhatIf] [-Confirm]
+    [<CommonParameters>]
+
+# InstallerToken parameter set
+Redo-LTService [[-Server] <String[]>] [-InstallerToken <String>] [[-LocationID] <String>]
+    [-Backup] [-Hide] [[-Rename] <String>] [-SkipDotNet] [-Force] [-WhatIf] [-Confirm]
+    [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="Server" type="String[]">
+  The URL to the LabTech/Automate server. Used for both the uninstall and reinstall steps.
+
+  If not provided, the function attempts to read the server address from the registry via
+  `Get-LTServiceInfo`. If the agent is not installed, it tries `Get-LTServiceInfoBackup`.
+  If neither source is available, the function prompts interactively.
+
+  Accepts pipeline input by property name and by value.
+
+  **Example:** `https://lt.domain.com`
+</ParamField>
+
+<ParamField path="ServerPassword" type="String">
+  The system password agents use to authenticate with the server.
+
+  Retrieve this value from the server database with:
+  ```sql
+  SELECT SystemPassword FROM config;
+  ```
+
+  Alias: `Password`. Accepts pipeline input by property name. Mutually exclusive with
+  `-InstallerToken`.
+</ParamField>
+
+<ParamField path="InstallerToken" type="String">
+  An installer token for customized MSI downloads via `Deployment.aspx`. Use as an
+  alternative to `-ServerPassword`.
+
+  Pattern: `[0-9a-z]+` (lowercase alphanumeric only).
+
+  Mutually exclusive with `-ServerPassword`.
+</ParamField>
+
+<ParamField path="LocationID" type="String">
+  The Location ID the agent should be placed into after reinstall.
+
+  If not provided, the function reads the current LocationID from the registry. If that
+  also fails, it prompts interactively. Defaults to `1` if nothing is found.
+</ParamField>
+
+<ParamField path="Backup" type="SwitchParameter">
+  If specified, runs `New-LTServiceBackup` before the uninstall step, preserving
+  current agent settings for later recovery.
+</ParamField>
+
+<ParamField path="Hide" type="SwitchParameter">
+  If specified, passes `-Hide` to `Install-LTService` to hide the agent entry in
+  **Add/Remove Programs** after reinstall.
+</ParamField>
+
+<ParamField path="Rename" type="String">
+  If provided, passes `-Rename` to `Install-LTService` to rename the agent entry in
+  **Add/Remove Programs** to the specified string after reinstall.
+</ParamField>
+
+<ParamField path="SkipDotNet" type="SwitchParameter">
+  Skips the .NET Framework 3.5 and .NET 2.0 prerequisite checks during reinstall.
+  Passed through to `Install-LTService`.
+</ParamField>
+
+<ParamField path="Force" type="SwitchParameter">
+  Allows the operation to proceed on a probe agent. Without this switch, probe agents
+  are protected from reinstall.
+</ParamField>
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what actions would be performed without actually executing them.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before executing each significant action.
+</ParamField>
+
+## Examples
+
+**Reinstall using settings from the registry:**
+
+```powershell
+Redo-LTService
+```
+
+Reads the server address and LocationID from the registry, uninstalls the current agent,
+and reinstalls it with the same settings.
+
+---
+
+**Reinstall with explicit server, password, and location:**
+
+```powershell
+Redo-LTService -Server https://lt.domain.com -Password sQWZzEDYKFFnTT0yP56vgA== -LocationID 42
+```
+
+Uses the provided parameters instead of reading from the registry. Useful when the
+registry is inaccessible or you want to move the agent to a different location.
+
+## Notes
+
+- This function is also available as the alias `ReInstall-LTService`.
+- A 20-second delay is introduced between the uninstall and install steps to allow services and file handles to fully release.
+- The server password is redacted in all verbose/output messages during execution.
+- `-Force` is implicitly passed to `Uninstall-LTService` and `Install-LTService` internally during the redo operation.

@@ -1,0 +1,224 @@
+---
+title: "Agent lifecycle"
+description: "How to install, reinstall, update, and remove the Automate agent using the PowerShell module."
+---
+
+<Warning>
+  All lifecycle operations require an **Administrator** PowerShell session. The module checks group membership at startup and throws immediately if it detects a non-admin context.
+</Warning>
+
+## Overview
+
+The LabTech PowerShell module manages the full lifecycle of the ConnectWise Automate agent on a Windows endpoint — from a clean install through routine updates, repairs, and clean removal.
+
+## Installing the agent
+
+`Install-LTService` downloads the agent MSI from the server and runs a silent install. Two authentication methods are supported: a **server password** (classic) and an **installer token** (token-based, no plain-text password required).
+
+<Tabs>
+  <Tab title="Server password">
+    ```powershell
+    Install-LTService `
+        -Server 'https://automate.example.com' `
+        -ServerPassword 'sQWZzEDYKFFnTT0yP56vgA==' `
+        -LocationID 42 `
+        -TrayPort 42000 `
+        -Hide
+    ```
+
+    | Parameter | Required | Description |
+    |---|---|---|
+    | `-Server` | Yes | URL to the Automate server used to download the MSI. |
+    | `-ServerPassword` | Yes (this method) | Server system password (`SELECT SystemPassword FROM config;`). |
+    | `-LocationID` | No | Location the agent registers into. Defaults to `1`. |
+    | `-TrayPort` | No | Port `LTSvc.exe` listens on for tray communication. Defaults to `42000`. |
+    | `-Hide` | No | Hides the agent from Add/Remove Programs after install. |
+    | `-SkipDotNet` | No | Skips the .NET 3.5 check. Use when .NET 4.0+ is already present. |
+    | `-Force` | No | Bypasses some pre-install checks, including prior-install detection. |
+    | `-NoWait` | No | Returns immediately after the MSI finishes without waiting for agent registration. |
+  </Tab>
+  <Tab title="Installer token">
+    ```powershell
+    Install-LTService `
+        -Server 'https://automate.example.com' `
+        -InstallerToken 'abc123-token' `
+        -LocationID 42 `
+        -TrayPort 42000
+    ```
+
+    The `-InstallerToken` parameter enables MSI download via a customized deployment token instead of the server password. Tokens must match the pattern `[0-9a-z-]+`.
+
+    <Tip>
+      Installer tokens are the preferred method for new deployments. They avoid embedding the server system password in scripts and support Automate 2024 Patch 7+ ZIP-bundle installers automatically.
+    </Tip>
+  </Tab>
+</Tabs>
+
+### Full install with all options
+
+```powershell
+Install-LTService `
+    -Server 'https://automate.example.com' `
+    -ServerPassword 'sQWZzEDYKFFnTT0yP56vgA==' `
+    -LocationID 42 `
+    -TrayPort 42001 `
+    -Hide `
+    -SkipDotNet `
+    -Force `
+    -NoWait
+```
+
+## Confirming registration
+
+After installation completes, use `Get-LTServiceInfo` to verify the agent received an ID from the server. An `ID` of `1` or higher means the agent has checked in successfully.
+
+```powershell
+$info = Get-LTServiceInfo
+if ($info.ID -ge 1) {
+    Write-Output "Agent registered. ID: $($info.ID) | LocationID: $($info.LocationID)"
+} else {
+    Write-Warning "Agent not yet registered."
+}
+```
+
+`Get-LTServiceInfo` reads from `HKLM:\SOFTWARE\LabTech\Service` and returns a rich object with server addresses, version, tray port, location, and more:
+
+```powershell
+Get-LTServiceInfo | Select-Object ID, LocationID, Server, Version, TrayPort, BasePath
+```
+
+## Updating the agent
+
+`Update-LTService` downloads the update package from the server and applies it without a full reinstall.
+
+```powershell
+# Update to the version currently advertised by the server
+Update-LTService
+
+# Update to a specific version
+Update-LTService -Version '120.240'
+```
+
+<Tip>
+  Omitting `-Version` instructs the module to query the server for its current advertised version and apply that. The function will warn and exit if the installed version is already at or above the requested version.
+</Tip>
+
+The update process:
+1. Stops `LTService` and `LTSvcMon`
+2. Downloads `LabtechUpdate_<version>.zip` from the server
+3. Extracts and runs the updater
+4. Restarts the services
+
+## Reinstalling / repairing
+
+`Redo-LTService` (alias: `ReInstall-LTService`) performs a full uninstall followed by a fresh install in a single call. It reads the existing server address and location from the registry automatically, so you do not need to supply them if the agent is currently installed.
+
+<Steps>
+  <Step title="Call Redo-LTService">
+    ```powershell
+    # Let the module read current settings from the registry
+    Redo-LTService
+
+    # Override server and location explicitly
+    Redo-LTService `
+        -Server 'https://automate.example.com' `
+        -ServerPassword 'sQWZzEDYKFFnTT0yP56vgA==' `
+        -LocationID 42
+    ```
+
+    Internally, `Redo-LTService` calls `Uninstall-LTService -Force` then waits 20 seconds before calling `Install-LTService`. The `-Force` flag on the uninstall step is always passed, so probe-agent detection does not block the operation at the uninstall stage.
+  </Step>
+  <Step title="Verify the reinstall">
+    ```powershell
+    $info = Get-LTServiceInfo
+    Write-Output "New Agent ID: $($info.ID)"
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  **Probe agent caution.** `Redo-LTService` will refuse to run on an agent flagged as a probe (`Probe = 1` in the registry) unless you pass `-Force`. The same applies to `Uninstall-LTService`. Always confirm whether an endpoint is a probe before running lifecycle operations.
+
+  ```powershell
+  $info = Get-LTServiceInfo
+  if ($info.Probe -eq '1') {
+      Write-Warning "This is a probe agent. Use -Force to override."
+  }
+  ```
+</Warning>
+
+## Backing up before changes
+
+`New-LTServiceBackup` copies the agent's registry keys under `HKLM\SOFTWARE\LabTechBackup` and copies the `LTSVC` folder to `<BasePath>Backup`. Run it before any destructive operation.
+
+```powershell
+New-LTServiceBackup
+```
+
+You can also pass `-Backup` directly to `Uninstall-LTService` or `Redo-LTService` to trigger the backup automatically:
+
+```powershell
+Uninstall-LTService -Backup
+Redo-LTService -Backup -Server 'https://automate.example.com' -ServerPassword 'sQWZzEDYKFFnTT0yP56vgA=='
+```
+
+To restore or inspect backup data:
+
+```powershell
+Get-LTServiceInfoBackup
+```
+
+## Uninstalling the agent
+
+`Uninstall-LTService` stops all services, downloads the uninstall MSI and `Agent_Uninstall.exe` from the server, runs both, scrubs remaining files under `%windir%\LTSVC`, and removes all known registry keys.
+
+```powershell
+# Use the server address already stored in the registry
+Uninstall-LTService
+
+# Specify the server explicitly and take a backup first
+Uninstall-LTService `
+    -Server 'https://automate.example.com' `
+    -Backup `
+    -Force
+```
+
+| Parameter | Description |
+|---|---|
+| `-Server` | Server URL used to download uninstall utilities. Falls back to the registry value if omitted. |
+| `-Backup` | Runs `New-LTServiceBackup` before uninstalling. |
+| `-Force` | Allows uninstall to proceed on probe agents. |
+
+<Tip>
+  If the server is unreachable, the uninstaller falls back to downloading `Agent_Uninstall.exe` from `https://s3.amazonaws.com/assets-cp/assets/Agent_Uninstall.exe` and continues the scrub process without the MSI step.
+</Tip>
+
+## Complete lifecycle workflow
+
+<Steps>
+  <Step title="Back up the current agent">
+    ```powershell
+    New-LTServiceBackup
+    ```
+  </Step>
+  <Step title="Check agent status">
+    ```powershell
+    Get-LTServiceInfo | Select-Object ID, Server, Version, LocationID
+    ```
+  </Step>
+  <Step title="Update in place">
+    ```powershell
+    Update-LTService
+    ```
+  </Step>
+  <Step title="Reinstall if update is insufficient">
+    ```powershell
+    Redo-LTService -Backup
+    ```
+  </Step>
+  <Step title="Uninstall completely">
+    ```powershell
+    Uninstall-LTService -Backup -Force
+    ```
+  </Step>
+</Steps>

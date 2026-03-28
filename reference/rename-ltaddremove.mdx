@@ -1,0 +1,66 @@
+---
+title: "Rename-LTAddRemove"
+description: "Rename the Automate agent entry in Add/Remove Programs."
+---
+
+## Synopsis
+
+Changes the display name of the LabTech agent in Add/Remove Programs by updating the `DisplayName` (and optionally the `Publisher`) registry value under the agent's Uninstall key. This is useful for white-labeling deployments or presenting a custom name to end users.
+
+<Tip>
+  Use `-PublisherName` alongside `-Name` to fully white-label the entry — both the program name and the publisher column in Programs and Features will reflect your chosen values.
+</Tip>
+
+## Syntax
+
+```powershell
+Rename-LTAddRemove [-Name] <Object> [[-PublisherName] <String>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="Name" type="string" required>
+  The new display name for the LabTech agent as it will appear in the Add/Remove Programs list. Accepts any string value. Position: 1.
+</ParamField>
+
+<ParamField path="PublisherName" type="string">
+  The new publisher name to display alongside the entry in Programs and Features. When omitted, the publisher field is left unchanged. Position: 2.
+</ParamField>
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what would happen if the cmdlet runs without actually making any changes. Alias: `wi`.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before applying each registry change. Alias: `cf`.
+</ParamField>
+
+This cmdlet also accepts the common PowerShell parameters: `-Debug`, `-ErrorAction`, `-ErrorVariable`, `-InformationAction`, `-InformationVariable`, `-OutVariable`, `-OutBuffer`, `-PipelineVariable`, `-Verbose`, `-WarningAction`, and `-WarningVariable`.
+
+## Examples
+
+Rename the agent entry to a custom display name:
+
+```powershell
+Rename-LTAddRemove -Name 'IT Management Agent'
+```
+
+Rename the agent and update the publisher name:
+
+```powershell
+Rename-LTAddRemove -Name 'Remote Support Agent' -PublisherName 'Acme IT Services'
+```
+
+Preview what registry values would change without applying them:
+
+```powershell
+Rename-LTAddRemove -Name 'Remote Support Agent' -WhatIf
+```
+
+## Notes
+
+<Note>
+  `Rename-LTAddRemove` can be called automatically by `Install-LTService` when the `-Rename` parameter is provided. The value passed to `-Rename` is forwarded directly to the `-Name` argument of this function.
+</Note>
+
+The rename applies to whichever registry key is currently active — if the entry has been hidden with [`Hide-LTAddRemove`](/reference/hide-ltaddremove), the hidden key is updated so the new name takes effect immediately when the entry is restored with [`Show-LTAddRemove`](/reference/show-ltaddremove).

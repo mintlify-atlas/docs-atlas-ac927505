@@ -1,0 +1,41 @@
+---
+title: "Get-LTLogging"
+description: "Read the current agent logging level setting."
+---
+
+## Synopsis
+
+Reads the `Debuging` value from the agent's registry (`HKLM:\SOFTWARE\LabTech\Service\Settings`) and returns a human-readable string describing the current logging level.
+
+## Syntax
+
+```powershell
+Get-LTLogging [<CommonParameters>]
+```
+
+## Parameters
+
+This cmdlet has no additional parameters beyond the common PowerShell parameters (`-Debug`, `-ErrorAction`, `-ErrorVariable`, `-InformationAction`, `-InformationVariable`, `-OutVariable`, `-OutBuffer`, `-PipelineVariable`, `-Verbose`, `-WarningAction`, `-WarningVariable`).
+
+## Return value
+
+Returns a string describing the active logging level:
+
+| Registry value | Output |
+|---|---|
+| `1` | `Current logging level: Normal` |
+| `1000` | `Current logging level: Verbose` |
+
+An error is written if the registry value is absent or set to an unrecognized value.
+
+## Examples
+
+Display the current logging level:
+
+```powershell
+Get-LTLogging
+```
+
+## Related commands
+
+- [Set-LTLogging](/reference/set-ltlogging)

@@ -1,0 +1,183 @@
+---
+title: 'Installation'
+description: 'All the ways to load the LabTech PowerShell Module — one-liner download, manual import, or Git clone.'
+---
+
+There are three ways to get the module into a PowerShell session. Choose the method that fits your environment and security policy.
+
+## Prerequisites
+
+<Note>
+All three methods require **Windows** and a **PowerShell 2.0 or higher** session. PowerShell 3.0 or higher is strongly recommended for full functionality.
+</Note>
+
+- **PowerShell version:** PS 2.0 is the minimum. The module emits a verbose warning on PS 2 and exits immediately on PS 1. PS 3+ unlocks all features.
+- **Administrator rights:** Required for all functions that install, uninstall, or control services. The module checks for local Administrator group membership (`S-1-5-32-544`) and throws if elevation is missing.
+- **Windows only:** The module calls Windows-native binaries (`sc.exe`, `msiexec.exe`, `regsvr32.exe`) and reads the `HKLM:\SOFTWARE\LabTech` registry hive. It does not run on Linux or macOS.
+
+## Method 1: One-line download
+
+<Steps>
+  <Step title="Open an Administrator PowerShell session">
+    Right-click the PowerShell icon and select **Run as Administrator**, or launch from an elevated command prompt:
+
+    ```powershell
+    Start-Process powershell -Verb RunAs
+    ```
+  </Step>
+
+  <Step title="Download and execute the module">
+    Run the following command. It downloads the module source from the LabTech Consulting shortlink and executes it in-memory using `iex` (`Invoke-Expression`). No file is written to disk; the module is available only in the current session.
+
+    ```powershell
+    (New-Object Net.WebClient).DownloadString('https://bit.ly/LTPoSh') | iex
+    ```
+
+    <Note>
+    TLS 1.0, 1.1, 1.2, and 1.3 are all enabled by the module at load time. You do not need to configure `[Net.ServicePointManager]::SecurityProtocol` manually.
+    </Note>
+  </Step>
+
+  <Step title="Verify the module is loaded">
+    ```powershell
+    Get-Command -Module LabTech | Select-Object -ExpandProperty Name
+    ```
+
+    You should see all 25 exported functions listed, including `Install-LTService`, `Get-LTServiceInfo`, and `Restart-LTService`.
+  </Step>
+</Steps>
+
+<Warning>
+The one-liner evaluates remote code directly. Use it only when you trust the source and your network path. For air-gapped or high-security environments, use Method 2 or 3 instead.
+</Warning>
+
+---
+
+## Method 2: Download and import manually
+
+<Steps>
+  <Step title="Download the module file">
+    Download `LabTech.psm1` from the GitHub repository to a local path.
+
+    <CodeGroup>
+
+    ```powershell PowerShell (WebClient)
+    $destination = "$env:USERPROFILE\Documents\LabTech.psm1"
+    (New-Object Net.WebClient).DownloadFile(
+        'https://raw.githubusercontent.com/LabtechConsulting/LabTech-Powershell-Module/master/LabTech.psm1',
+        $destination
+    )
+    ```
+
+    ```powershell PowerShell (Invoke-WebRequest)
+    $destination = "$env:USERPROFILE\Documents\LabTech.psm1"
+    Invoke-WebRequest `
+        -Uri 'https://raw.githubusercontent.com/LabtechConsulting/LabTech-Powershell-Module/master/LabTech.psm1' `
+        -OutFile $destination
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Unblock the downloaded file">
+    Windows marks files downloaded from the internet as potentially unsafe. Unblock the file before importing:
+
+    ```powershell
+    Unblock-File -Path "$env:USERPROFILE\Documents\LabTech.psm1"
+    ```
+  </Step>
+
+  <Step title="Import the module">
+    ```powershell
+    Import-Module "$env:USERPROFILE\Documents\LabTech.psm1"
+    ```
+
+    <Tip>
+    To make the module available in every session, copy `LabTech.psm1` into one of the directories listed in `$env:PSModulePath`, then call `Import-Module LabTech` without specifying a path.
+    </Tip>
+  </Step>
+
+  <Step title="Verify the import">
+    ```powershell
+    Get-Module LabTech | Select-Object Name, Version, ExportedFunctions
+    ```
+  </Step>
+</Steps>
+
+---
+
+## Method 3: Clone from GitHub and import
+
+<Steps>
+  <Step title="Clone the repository">
+    ```powershell
+    git clone https://github.com/LabtechConsulting/LabTech-Powershell-Module.git
+    ```
+  </Step>
+
+  <Step title="Import the module from the cloned path">
+    ```powershell
+    Import-Module .\LabTech-Powershell-Module\LabTech.psm1
+    ```
+
+    Or use an absolute path:
+
+    ```powershell
+    Import-Module 'C:\repos\LabTech-Powershell-Module\LabTech.psm1'
+    ```
+  </Step>
+
+  <Step title="Verify the import">
+    ```powershell
+    Get-Module LabTech | Select-Object Name, Version
+    ```
+  </Step>
+</Steps>
+
+<Note>
+Cloning from GitHub is the best choice when you want to pin to a specific commit, run the module offline after the initial clone, or contribute changes back to the project.
+</Note>
+
+---
+
+## How the module handles your environment automatically
+
+### 32-bit vs 64-bit detection
+
+When the module loads inside a 32-bit PowerShell process on a 64-bit OS, it detects the mismatch and relaunches itself in the native 64-bit environment. This is required because the LabTech agent is a 64-bit application and its registry keys live under the 64-bit hive.
+
+```powershell
+# From the module source — bit-depth detection at load time
+If ($env:PROCESSOR_ARCHITEW6432 -match '64' -and [IntPtr]::Size -ne 8 -and $env:PROCESSOR_ARCHITEW6432 -ne 'ARM64') {
+    Write-Warning '32-bit PowerShell session detected on 64-bit OS. Attempting to launch 64-Bit session to process commands.'
+    $pshell = "${env:windir}\SysNative\WindowsPowershell\v1.0\powershell.exe"
+    # Falls back to System32 with WOW64 redirection disabled if SysNative is unavailable
+    ...
+}
+```
+
+<Warning>
+After relaunching into a 64-bit session the module prints: *"Exiting 64-bit session. Module will only remain loaded in native 64-bit PowerShell environment."* This is informational — start your session in 64-bit PowerShell (`%windir%\System32\WindowsPowershell\v1.0\powershell.exe`) to avoid the relaunch entirely.
+</Warning>
+
+### TLS negotiation
+
+The module enables TLS 1.0, 1.1, 1.2, and 1.3 for the current session at load time, using whichever versions the .NET runtime on the host supports. You do not need to configure this manually.
+
+```powershell
+# From the module source
+IF([Net.SecurityProtocolType]::Tls)   {[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls}
+IF([Net.SecurityProtocolType]::Tls11) {[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls11}
+IF([Net.SecurityProtocolType]::Tls12) {[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12}
+IF([Net.SecurityProtocolType]::Tls13) {[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls13}
+```
+
+This ensures the module can reach modern HTTPS servers regardless of the system's default TLS policy.
+
+### SSL certificate handling
+
+The module installs a `TrustAllCertsPolicy` for the current session, which accepts all SSL certificates including self-signed ones. This is intentional — many on-premises LabTech servers use self-signed certificates.
+
+<Warning>
+`TrustAllCertsPolicy` applies to all HTTPS requests made by the .NET `ServicePointManager` for the lifetime of the session, not just LabTech traffic. Be aware of this if your scripts make other HTTPS calls in the same session.
+</Warning>

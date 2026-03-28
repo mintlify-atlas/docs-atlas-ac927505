@@ -1,0 +1,166 @@
+---
+title: "Install-LTService"
+description: "Install the ConnectWise Automate agent on a Windows machine."
+---
+
+## Synopsis
+
+Installs the LabTech (ConnectWise Automate) agent on the local machine by downloading and executing the agent MSI from the specified server.
+
+## Description
+
+`Install-LTService` downloads the agent installer MSI from the target LabTech/Automate server and runs it silently via `msiexec.exe`. Before installing, the function checks for an existing installation and, if found, calls `Uninstall-LTService` automatically to clean up before proceeding. After the MSI runs, the function waits up to three minutes for the agent to register with the server and obtain an Agent ID.
+
+The function automatically handles 32-bit vs. 64-bit execution environments and supports TLS 1.2. It validates .NET Framework 3.5 or 2.0 availability before install unless `-SkipDotNet` is specified. Both `ServerPassword` and `InstallerToken` authentication methods are supported.
+
+<Warning>
+`Install-LTService` must be run in a PowerShell session with **Administrator** privileges. The function will throw an error and exit if it detects a non-elevated session.
+</Warning>
+
+## Syntax
+
+```powershell
+# Deployment parameter set (ServerPassword)
+Install-LTService [-Server] <String[]> [[-ServerPassword] <String>] [[-LocationID] <Int32>]
+    [[-TrayPort] <Int32>] [[-Rename] <String>] [-Hide] [-SkipDotNet] [-Force] [-NoWait]
+    [-WhatIf] [-Confirm] [<CommonParameters>]
+
+# InstallerToken parameter set
+Install-LTService [-Server] <String[]> [-InstallerToken <String>] [[-LocationID] <Int32>]
+    [[-TrayPort] <Int32>] [[-Rename] <String>] [-Hide] [-SkipDotNet] [-Force] [-NoWait]
+    [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+## Parameters
+
+<ParamField path="Server" type="String[]" required>
+  The URL to the LabTech/Automate server. Used to download the agent installer MSI.
+
+  Accepts pipeline input by property name. Multiple server URLs may be provided; the first
+  reachable server is used.
+
+  **Example:** `https://lt.domain.com`
+</ParamField>
+
+<ParamField path="ServerPassword" type="String">
+  The system password agents use to authenticate with the server.
+
+  Retrieve this value from the server database with:
+  ```sql
+  SELECT SystemPassword FROM config;
+  ```
+
+  Alias: `Password`. Accepts pipeline input by property name. Mutually exclusive with
+  `-InstallerToken` (use one or the other, not both).
+</ParamField>
+
+<ParamField path="InstallerToken" type="String">
+  An installer token for customized MSI downloads via `Deployment.aspx`. Use this as an
+  alternative to `-ServerPassword` when the server is configured for token-based installer
+  delivery.
+
+  Pattern: `[0-9a-z-]+` (lowercase alphanumeric characters and hyphens only).
+
+  Mutually exclusive with `-ServerPassword`.
+</ParamField>
+
+<ParamField path="LocationID" type="Int32">
+  The Location ID of the location the agent will be placed into after registration.
+
+  Defaults to `1` if not specified.
+
+  Retrieve the current machine's LocationID with:
+  ```powershell
+  (Get-LTServiceInfo).LocationID
+  ```
+
+  Accepts pipeline input by property name.
+</ParamField>
+
+<ParamField path="TrayPort" type="Int32">
+  The port that `LTSvc.exe` listens on for communication with `LTTray` processes.
+
+  Defaults to `42000`. If the specified port is already in use, the function automatically
+  increments to the next available port in the range `42000`–`42009`.
+
+  Accepts pipeline input by property name.
+</ParamField>
+
+<ParamField path="Rename" type="String">
+  If provided, calls `Rename-LTAddRemove` after installation to rename the agent entry
+  in **Add/Remove Programs** to the specified string.
+</ParamField>
+
+<ParamField path="Hide" type="SwitchParameter">
+  If specified, calls `Hide-LTAddRemove` after installation to remove the agent entry
+  from **Add/Remove Programs**.
+</ParamField>
+
+<ParamField path="SkipDotNet" type="SwitchParameter">
+  Skips the .NET Framework 3.5 and .NET 2.0 prerequisite checks. Useful on systems where
+  .NET 4.0 or higher is already installed and .NET 3.5 cannot or should not be enabled.
+</ParamField>
+
+<ParamField path="Force" type="SwitchParameter">
+  Bypasses some error checks during the install process, including allowing the install to
+  proceed when .NET 3.5 is not present (as long as .NET 2.0 or higher is detected).
+  Also suppresses the "services already installed" error to allow forced reinstall.
+</ParamField>
+
+<ParamField path="NoWait" type="SwitchParameter">
+  Skips the post-install wait for agent registration. The function returns as soon as the
+  MSI installer process exits, without waiting for the agent to obtain an Agent ID from
+  the server.
+</ParamField>
+
+<ParamField path="WhatIf" type="SwitchParameter">
+  Shows what actions would be performed without actually executing them. No files are
+  downloaded or installed.
+</ParamField>
+
+<ParamField path="Confirm" type="SwitchParameter">
+  Prompts for confirmation before executing each significant action.
+</ParamField>
+
+## Examples
+
+**Install with server password and a specific location:**
+
+```powershell
+Install-LTService -Server https://lt.domain.com -Password 'plain text pass' -LocationID 42
+```
+
+Downloads the agent MSI from `https://lt.domain.com` and installs it into Location 42
+using the provided server system password.
+
+---
+
+**Install using an installer token:**
+
+```powershell
+Install-LTService -Server https://lt.domain.com -InstallerToken 'abc123-token' -LocationID 10
+```
+
+Downloads a customized MSI via `Deployment.aspx` using an installer token instead of the
+server password. Suitable for environments where anonymous or token-based downloads are
+configured.
+
+---
+
+**Silent install with no post-install wait:**
+
+```powershell
+Install-LTService -Server https://lt.domain.com -Password 'sQWZzEDYKFFnTT0yP56vgA==' -LocationID 1 -NoWait -Hide
+```
+
+Installs the agent, hides the entry from Add/Remove Programs, and returns immediately
+after the MSI completes without waiting for agent registration.
+
+## Notes
+
+- Requires PowerShell 2.0 or higher (3.0+ recommended for full functionality).
+- Automatically handles 32-bit PowerShell sessions running on a 64-bit OS by relaunching in a 64-bit shell.
+- Supports TLS 1.2 and proxy server configurations.
+- If a prior installation is detected, `Uninstall-LTService` is called automatically before proceeding.
+- The installer log is written to `%windir%\Temp\LabTech\LTAgentInstall.log`.
+- Server password values are redacted in log files after installation completes.
